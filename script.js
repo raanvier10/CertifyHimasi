@@ -532,10 +532,29 @@ function onSelectPubEvent(gIdx) {
 function updatePublicStats() {
   const total = state.participants.length;
   const dl = state.downloads.length;
+  const evCount = state.events.length;
   const pubTotal = document.getElementById('pub-total');
   const pubDl = document.getElementById('pub-downloads');
+  const pubEv = document.getElementById('pub-events-count');
   if (pubTotal) pubTotal.textContent = total;
   if (pubDl) pubDl.textContent = dl;
+  if (pubEv) pubEv.textContent = evCount;
+}
+
+function toggleMobileMenu() {
+  const drawer = document.getElementById('mobile-nav-drawer');
+  if (drawer) {
+    drawer.classList.toggle('open');
+  }
+}
+
+function toggleFaq(item) {
+  if (!item) return;
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(f => f.classList.remove('open'));
+  if (!isOpen) {
+    item.classList.add('open');
+  }
 }
 
 // ===== DOWNLOAD / GENERATE CERT =====
@@ -1366,3 +1385,5 @@ window.importData = importData;
 window.renderPesertaTable = renderPesertaTable;
 window.clearDownloads = clearDownloads;
 window.updateEditorStyle = updateEditorStyle;
+window.toggleMobileMenu = toggleMobileMenu;
+window.toggleFaq = toggleFaq;

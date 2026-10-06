@@ -29,7 +29,7 @@
        1. HALAMAN PUBLIK (PESERTA)
        ========================================================================= -->
   <div id="page-public" class="page active">
-    <!-- Navbar Publik -->
+    <!-- Navbar Start -->
     <nav class="pub-nav">
       <a class="pub-brand" href="javascript:void(0)" onclick="showPage('public')">
         <img src="assets/LogoHima.svg" alt="Logo HIMASI UBSI Karawang" class="pub-logo-img">
@@ -39,16 +39,43 @@
         </div>
         <span class="pub-pill-tag">Portal E-Sertifikat</span>
       </a>
-      <button class="btn btn-outline btn-sm" onclick="showPage('login')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 15px; height: 15px;">
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
-        </svg>
-        <span>Masuk Panitia</span>
-      </button>
+
+      <!-- Desktop Nav Links -->
+      <div class="pub-nav-links">
+        <a href="#hero-search" class="pub-nav-link">Cari Sertifikat</a>
+        <a href="#section-alur" class="pub-nav-link">Alur Unduh</a>
+        <a href="#section-keunggulan" class="pub-nav-link">Keunggulan</a>
+        <a href="#section-faq" class="pub-nav-link">FAQ</a>
+      </div>
+
+      <div class="pub-nav-actions">
+        <button class="btn btn-outline btn-sm" onclick="showPage('login')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 15px; height: 15px;">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
+          </svg>
+          <span>Masuk Panitia</span>
+        </button>
+        <button class="pub-menu-toggle" id="pub-menu-toggle" aria-label="Toggle Navigation Menu" onclick="toggleMobileMenu()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
     </nav>
 
-    <!-- Hero & Form Pencarian -->
-    <div class="hero">
+    <!-- Mobile Nav Drawer -->
+    <div class="mobile-nav-drawer" id="mobile-nav-drawer">
+      <a href="#hero-search" class="pub-nav-link" onclick="toggleMobileMenu()">Cari Sertifikat</a>
+      <a href="#section-alur" class="pub-nav-link" onclick="toggleMobileMenu()">Alur Unduh</a>
+      <a href="#section-keunggulan" class="pub-nav-link" onclick="toggleMobileMenu()">Keunggulan</a>
+      <a href="#section-faq" class="pub-nav-link" onclick="toggleMobileMenu()">FAQ</a>
+    </div>
+    <!-- Navbar End -->
+
+    <!-- Hero Section Start -->
+    <section class="hero" id="hero-search">
       <div class="hero-tag">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px">
           <polyline points="20 6 9 17 4 12"/>
@@ -70,10 +97,11 @@
 
       <!-- Container Hasil Pencarian -->
       <div class="result-area" id="result-area"></div>
-    </div>
+    </section>
+    <!-- Hero Section End -->
 
-    <!-- Ringkasan Statistik Publik -->
-    <div class="stats-strip">
+    <!-- Stats Strip Start -->
+    <section class="stats-strip">
       <div class="stat-item">
         <div class="s-num" id="pub-total">0</div>
         <div class="s-lbl">Peserta Terdaftar</div>
@@ -82,13 +110,189 @@
         <div class="s-num" id="pub-downloads">0</div>
         <div class="s-lbl">Sertifikat Telah Diunduh</div>
       </div>
-    </div>
+      <div class="stat-item">
+        <div class="s-num" id="pub-events-count">0</div>
+        <div class="s-lbl">Kegiatan Resmi Aktif</div>
+      </div>
+      <div class="stat-item">
+        <div class="s-num" style="color:var(--success)">100%</div>
+        <div class="s-lbl">Keaslian Terverifikasi</div>
+      </div>
+    </section>
+    <!-- Stats Strip End -->
 
-    <!-- Footer Publik -->
-    <footer class="pub-footer">
-      <strong>CertifyNow HIMASI</strong> · Sistem E-Sertifikat Resmi HIMASI Universitas BSI Kampus Karawang<br>
-      Jika nama Anda belum terdaftar atau terdapat kekeliruan data, silakan hubungi panitia acara terkait.
+    <!-- Alur Unduh Section Start -->
+    <section class="landing-section alt-bg" id="section-alur">
+      <div class="landing-container">
+        <div class="section-header-center">
+          <span class="section-tag">Panduan Ringkas</span>
+          <h2>3 Langkah Mudah Unduh Sertifikat</h2>
+          <p>Sistem otomatis CertifyNow memungkinkan Anda memperoleh sertifikat digital resmi dalam hitungan detik tanpa registrasi berulang.</p>
+        </div>
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h3>Ketik Nama Lengkap</h3>
+            <p>Masukkan nama lengkap sesuai identitas yang Anda gunakan saat mendaftar kegiatan atau kepanitiaan HIMASI.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h3>Pilih Sertifikat Acara</h3>
+            <p>Jika Anda mengikuti beberapa kegiatan, pilih sertifikat yang diinginkan melalui pemilih kegiatan yang tersedia.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h3>Unduh Dokumen PDF HD</h3>
+            <p>Klik tombol unduh untuk mengunduh dokumen PDF sertifikat beresolusi tinggi yang siap dicetak maupun disimpan.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Alur Unduh Section End -->
+
+    <!-- Keunggulan Section Start -->
+    <section class="landing-section" id="section-keunggulan">
+      <div class="landing-container">
+        <div class="section-header-center">
+          <span class="section-tag">Standar Mutu</span>
+          <h2>Keunggulan E-Sertifikat HIMASI</h2>
+          <p>Dirancang sesuai standar tata kelola sertifikasi organisasi kemahasiswaan modern Universitas BSI Kampus Karawang.</p>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon-box" style="background:var(--primary-light); color:var(--primary)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <h3>Kualitas Visual HD</h3>
+            <p>Render latar gambar dan teks berkualitas tinggi yang tajam serta presisi saat dicetak dalam format landscape A4.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box" style="background:var(--accent-gold-light); color:var(--accent-gold)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px">
+                <circle cx="12" cy="8" r="7"/>
+                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+              </svg>
+            </div>
+            <h3>Multi-Peran &amp; Kegiatan</h3>
+            <p>Mendukung diferensiasi status peran peserta, panitia pelaksana, moderator, hingga narasumber secara akurat.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box" style="background:var(--success-light); color:var(--success)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <h3>Penyimpanan Cloud Aman</h3>
+            <p>Terhubung langsung dengan cloud storage Supabase, menjamin akses unduh yang cepat, stabil, dan dapat diakses kapan pun.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Keunggulan Section End -->
+
+    <!-- FAQ Section Start -->
+    <section class="landing-section alt-bg" id="section-faq">
+      <div class="landing-container">
+        <div class="section-header-center">
+          <span class="section-tag">Bantuan &amp; Tanya Jawab</span>
+          <h2>Pertanyaan yang Sering Diajukan</h2>
+          <p>Temukan jawaban untuk kendala yang paling sering dihadapi peserta terkait e-sertifikat kegiatan.</p>
+        </div>
+        <div class="faq-list">
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <button class="faq-question">
+              <span>Bagaimana jika nama saya tidak ditemukan saat pencarian?</span>
+              <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="faq-answer">
+              Pastikan Anda mengetik nama lengkap tanpa gelar terlebih dahulu atau periksa ejaan yang digunakan saat mengisi presensi kegiatan. Jika masih belum ditemukan, hubungi panitia pelaksana melalui kontak resmi yang tertera.
+            </div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <button class="faq-question">
+              <span>Apakah sertifikat ini dapat digunakan untuk berkas SKPI?</span>
+              <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="faq-answer">
+              Ya, seluruh e-sertifikat yang diterbitkan melalui portal ini merupakan dokumen resmi kegiatan Himpunan Mahasiswa Sistem Informasi (HIMASI) Universitas BSI Kampus Karawang dan dapat dilampirkan untuk portofolio maupun SKPI.
+            </div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <button class="faq-question">
+              <span>Saya terdaftar di dua kegiatan berbeda, bagaimana cara mengunduhnya?</span>
+              <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="faq-answer">
+              Sistem kami secara otomatis mendeteksi riwayat keikutsertaan Anda. Cukup pilih nama kegiatan dari menu pilihan (dropdown) pada kartu hasil pencarian, lalu klik tombol unduh untuk masing-masing sertifikat.
+            </div>
+          </div>
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <button class="faq-question">
+              <span>Apakah ada biaya untuk mengunduh e-sertifikat ini?</span>
+              <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="faq-answer">
+              Tidak ada biaya apa pun. Pengunduhan e-sertifikat bagi seluruh peserta dan panitia kegiatan HIMASI UBSI Karawang bersifat 100% gratis.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- FAQ Section End -->
+
+    <!-- Main Footer Start -->
+    <footer class="main-footer">
+      <div class="footer-container">
+        <div class="footer-grid">
+          <div>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+              <img src="assets/LogoHima.svg" alt="HIMASI UBSI Karawang" style="height:34px; width:auto;">
+              <span class="footer-brand-title" style="margin-bottom:0">HIMASI UBSI Karawang</span>
+            </div>
+            <p class="footer-brand-desc">
+              Himpunan Mahasiswa Sistem Informasi Universitas Bina Sarana Informatika Kampus Karawang. Wadah aspirasi, kreativitas, dan pengembangan kompetensi teknologi informasi mahasiswa.
+            </p>
+          </div>
+          <div>
+            <div class="footer-col-title">Navigasi Portal</div>
+            <ul class="footer-links">
+              <li><a href="#hero-search" class="footer-link">Cari Sertifikat</a></li>
+              <li><a href="#section-alur" class="footer-link">Panduan Alur</a></li>
+              <li><a href="#section-keunggulan" class="footer-link">Standar Mutu</a></li>
+              <li><a href="#section-faq" class="footer-link">Tanya Jawab (FAQ)</a></li>
+              <li><a href="javascript:void(0)" onclick="showPage('login')" class="footer-link">Portal Panitia</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-title">Sekretariat &amp; Kontak</div>
+            <p style="font-size:13px; color:rgba(255,255,255,0.65); line-height:1.6; margin-bottom:12px;">
+              Universitas BSI Kampus Karawang<br>
+              Jl. Banten No. 1, Karangpawitan, Kec. Karawang Barat, Jawa Barat
+            </p>
+            <div style="display:flex; gap:12px; margin-top:8px;">
+              <span style="font-size:12.5px; color:rgba(255,255,255,0.8); font-weight:600;">Instagram: @himasi.ubsikarawang</span>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>&copy; 2026 HIMASI UBSI Karawang · Hak Cipta Dilindungi Undang-Undang.</span>
+          <span>CertifyNow v3.6 · E-Certificate Management Platform</span>
+        </div>
+      </div>
     </footer>
+    <!-- Main Footer End -->
   </div>
 
 
