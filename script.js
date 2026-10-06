@@ -76,8 +76,25 @@ function onSwitchEvent(eventId) {
 
   setEditorTemplate(ev.template_url);
   applyPositions();
+  renderEventPills();
   updatePublicStats();
   renderDashboard();
+}
+
+function renderEventPills() {
+  const container = document.getElementById('event-pills-container');
+  if (!container) return;
+  const active = getActiveEvent();
+  container.innerHTML = state.events.map(e => {
+    const count = state.participants.filter(p => p.eventId === e.id).length;
+    const isActive = active && active.id === e.id;
+    return `
+      <button class="event-pill ${isActive ? 'active' : ''}" onclick="onSwitchEvent('${e.id}')" title="${escapeHtml(e.name)}">
+        <span>${escapeHtml(e.name)}</span>
+        <span class="badge-counter">${count}</span>
+      </button>
+    `;
+  }).join('');
 }
 
 function renderEventDropdowns() {
@@ -124,6 +141,19 @@ function renderEventDropdowns() {
       </option>
     `).join('');
   }
+
+  // 5. Filter di Tab Riwayat Unduhan
+  const dlFilter = document.getElementById('filter-dl-event-select');
+  if (dlFilter) {
+    const currentDlVal = dlFilter.value;
+    dlFilter.innerHTML = '<option value="">Semua Acara</option>' + evs.map(e => `
+      <option value="${e.id}" ${currentDlVal === e.id ? 'selected' : ''}>
+        ${escapeHtml(e.name)}
+      </option>
+    `).join('');
+  }
+
+  renderEventPills();
 }
 
 function showAddEventModal() {
@@ -219,6 +249,26 @@ async function deleteActiveEvent() {
     const { error } = await sb.from('events').delete().eq('id', ev.id);
     if (error) throw error;
     state.activeEventId = null;
+    await Promise.all([loadEvents(), loadParticipants()]);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function deleteEventById(id) {
+  const ev = state.events.find(e => e.id === id);
+  if (!ev) return;
+  if (state.events.length <= 1) {
+    alert('Minimal harus ada 1 acara terdaftar di sistem. Tidak bisa menghapus semua acara.');
+    return;
+  }
+
+  if (!confirm(`Apakah Anda yakin ingin menghapus acara "${ev.name}"? Semua data peserta pada acara ini juga akan terhapus.`)) return;
+
+  try {
+    const { error } = await sb.from('events').delete().eq('id', id);
+    if (error) throw error;
+    if (state.activeEventId === id) state.activeEventId = null;
     await Promise.all([loadEvents(), loadParticipants()]);
   } catch (e) {
     console.error(e);
@@ -763,9 +813,10 @@ function getEditorPositions() {
   const W = 297;
   const H = 210;
   const fb = state.settings.positions || {};
-  const color = document.getElementById('cfg-color')?.value || fb.color || '#30338A';
+  const color = document.getElementById('cfg-color')?.value || fb.color || '#1E255E';
   const nameSize = parseInt(document.getElementById('cfg-name-size')?.value || fb.name?.size || 32, 10);
   const roleSize = parseInt(document.getElementById('cfg-role-size')?.value || fb.role?.size || 18, 10);
+  const eventSize = parseInt(document.getElementById('cfg-event-size')?.value || fb.event?.size || 12, 10);
   const container = document.getElementById('canvas-container');
 
   const readPos = (id, fallback) => {
@@ -783,7 +834,7 @@ function getEditorPositions() {
   return {
     name: { ...readPos('drag-name', fb.name || { x: 148, y: 105 }), size: nameSize },
     role: { ...readPos('drag-role', fb.role || { x: 148, y: 132 }), size: roleSize },
-    event: { ...readPos('drag-event', fb.event || { x: 148, y: 155 }), size: fb.event?.size || 12 },
+    event: { ...readPos('drag-event', fb.event || { x: 148, y: 155 }), size: eventSize },
     color
   };
 }
@@ -811,9 +862,11 @@ function applyPositions() {
 
   const nameSize = document.getElementById('cfg-name-size');
   const roleSize = document.getElementById('cfg-role-size');
+  const eventSize = document.getElementById('cfg-event-size');
   const color = document.getElementById('cfg-color');
   if (nameSize && pos.name?.size) nameSize.value = pos.name.size;
   if (roleSize && pos.role?.size) roleSize.value = pos.role.size;
+  if (eventSize && pos.event?.size) eventSize.value = pos.event.size;
   if (color && pos.color) color.value = pos.color;
   updateEditorStyle();
 }
@@ -899,7 +952,8 @@ function initCertEditorDrag() {
 function updateEditorStyle() {
   const nameSize = document.getElementById('cfg-name-size')?.value || 32;
   const roleSize = document.getElementById('cfg-role-size')?.value || 18;
-  const color = document.getElementById('cfg-color')?.value || '#30338A';
+  const eventSize = document.getElementById('cfg-event-size')?.value || 12;
+  const color = document.getElementById('cfg-color')?.value || '#1E255E';
   
   const n = document.getElementById('drag-name');
   const r = document.getElementById('drag-role');
@@ -907,7 +961,7 @@ function updateEditorStyle() {
   
   if (n) { n.style.fontSize = nameSize + 'px'; n.style.color = color; }
   if (r) { r.style.fontSize = roleSize + 'px'; }
-  if (e) { e.style.color = color; }
+  if (e) { e.style.fontSize = eventSize + 'px'; e.style.color = color; }
 }
 
 async function savePositions() {
@@ -943,6 +997,33 @@ async function savePositions() {
     console.error(err);
     alert("Gagal menyimpan posisi: " + (err.message || err));
   }
+}
+
+async function resetPositionsDefault() {
+  const defaultPos = {
+    name: { x: 148, y: 105, size: 32 },
+    role: { x: 148, y: 132, size: 18 },
+    event: { x: 148, y: 155, size: 12 },
+    color: '#1E255E'
+  };
+  state.settings.positions = defaultPos;
+  const ev = getActiveEvent();
+  if (ev) ev.positions = defaultPos;
+  applyPositions();
+  await savePositions();
+}
+
+async function previewDummyPDF() {
+  const ev = getActiveEvent();
+  if (!ev) { alert('Pilih acara terlebih dahulu.'); return; }
+  const dummy = {
+    id: 'dummy',
+    nama: 'ACHMAD FAUZI NUGRAHA',
+    peran: 'Peserta',
+    eventName: ev.name,
+    eventId: ev.id
+  };
+  await generatePDF(dummy, ev);
 }
 
 // ===== EXCEL UPLOAD =====
@@ -987,13 +1068,43 @@ function handleExcel(input) {
   reader.readAsBinaryString(file);
 }
 
+function downloadExcelTemplate() {
+  const wsData = [
+    ['Nama Lengkap', 'Peran'],
+    ['Ahmad Fauzi Nugraha', 'Peserta'],
+    ['Dian Pratama', 'Panitia Koordinator Acara'],
+    ['Dr. Hendra Gunawan, M.Kom.', 'Narasumber'],
+    ['Siti Rahmawati', 'Moderator'],
+    ['Budi Santoso', 'Peserta']
+  ];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 32 }, { wch: 28 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Peserta');
+  XLSX.writeFile(wb, 'Template_Import_Peserta_HIMASI.xlsx');
+}
+
 function renderPreview() {
   const tbody = document.getElementById('preview-tbody');
+  const totalBadge = document.getElementById('preview-total-badge');
+  const validBadge = document.getElementById('preview-valid-badge');
+  const invalidBadge = document.getElementById('preview-invalid-badge');
+
+  const total = state.previewData.length;
+  const validCount = state.previewData.filter(r => r.valid).length;
+  const invalidCount = total - validCount;
+
+  if (totalBadge) totalBadge.textContent = `Total: ${total}`;
+  if (validBadge) validBadge.textContent = `Valid: ${validCount}`;
+  if (invalidBadge) invalidBadge.textContent = `Tidak Valid: ${invalidCount}`;
+
+  if (!tbody) return;
+
   tbody.innerHTML = state.previewData.map((r, i) => `
 <tr>
   <td>${i + 1}</td>
-  <td>${r.nama || '<span style="color:var(--danger)">kosong</span>'}</td>
-  <td>${r.peran || '<span style="color:var(--danger)">kosong</span>'}</td>
+  <td>${r.nama ? escapeHtml(r.nama) : '<span style="color:var(--danger)">kosong</span>'}</td>
+  <td>${r.peran ? escapeHtml(r.peran) : '<span style="color:var(--danger)">kosong</span>'}</td>
   <td><span class="badge ${r.valid ? 'badge-green' : 'badge'}" style="${!r.valid ? 'background:var(--danger-light);color:var(--danger)' : ''}">${r.valid ? 'Valid' : 'Tidak Valid'}</span></td>
 </tr>`).join('');
   document.getElementById('preview-table').style.display = 'block';
@@ -1001,7 +1112,7 @@ function renderPreview() {
 
 async function importData() {
   const valid = state.previewData.filter(r => r.valid);
-  if (valid.length === 0) { showMsg('upload-msg', 'error', 'Tidak ada data valid.'); return; }
+  if (valid.length === 0) { showMsg('upload-msg', 'error', 'Tidak ada data valid untuk diimport.'); return; }
 
   const targetEventId = document.getElementById('upload-event-select')?.value;
   const targetEvent = state.events.find(e => e.id === targetEventId) || getActiveEvent();
@@ -1010,7 +1121,7 @@ async function importData() {
     return;
   }
 
-  showMsg('upload-msg', 'success', `Sedang mengimport ${valid.length} data ke acara "${targetEvent.name}"...`);
+  showMsg('upload-msg', 'success', `Sedang mengimport ${valid.length} data peserta ke acara "${targetEvent.name}"...`);
 
   try {
     const rows = valid.map(r => ({
@@ -1036,6 +1147,82 @@ async function importData() {
     console.error(err);
     showMsg('upload-msg', 'error', 'Gagal mengimport data: ' + (err.message || err));
   }
+}
+
+// ===== EXPORT DATA KE EXCEL =====
+function exportPesertaToExcel() {
+  const q = (document.getElementById('admin-search')?.value || '').toLowerCase();
+  const filterEvent = document.getElementById('filter-event-select')?.value || '';
+  const filterRole = (document.getElementById('filter-role-select')?.value || '').toLowerCase();
+
+  const list = state.participants.filter(p => {
+    const matchesQ = !q || p.nama.toLowerCase().includes(q) || (p.eventName && p.eventName.toLowerCase().includes(q));
+    const matchesEvent = !filterEvent || p.eventId === filterEvent;
+    const matchesRole = !filterRole || p.peran.toLowerCase().includes(filterRole);
+    return matchesQ && matchesEvent && matchesRole;
+  });
+
+  if (list.length === 0) {
+    alert('Tidak ada data peserta yang cocok untuk diexport.');
+    return;
+  }
+
+  const rows = [
+    ['No', 'Nama Lengkap', 'Peran', 'Kegiatan / Acara', 'Jumlah Unduh', 'Tanggal Terdaftar']
+  ];
+
+  list.forEach((p, i) => {
+    rows.push([
+      i + 1,
+      p.nama,
+      p.peran,
+      p.eventName || '-',
+      p.downloadCount || 0,
+      p.createdAt ? fmtDate(p.createdAt) : '-'
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 6 }, { wch: 32 }, { wch: 24 }, { wch: 32 }, { wch: 14 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Peserta');
+  XLSX.writeFile(wb, `Data_Peserta_HIMASI_${Date.now()}.xlsx`);
+}
+
+function exportDownloadsToExcel() {
+  const q = (document.getElementById('stat-search')?.value || '').toLowerCase();
+  const filterEvent = document.getElementById('filter-dl-event-select')?.value || '';
+
+  const list = state.downloads.filter(d => {
+    const matchesQ = !q || (d.participantName && d.participantName.toLowerCase().includes(q));
+    const matchesEvent = !filterEvent || (d.eventId === filterEvent || (d.eventName && d.eventName === filterEvent));
+    return matchesQ && matchesEvent;
+  });
+
+  if (list.length === 0) {
+    alert('Tidak ada riwayat unduhan yang cocok untuk diexport.');
+    return;
+  }
+
+  const rows = [
+    ['No', 'Nama Peserta', 'Peran', 'Kegiatan / Acara', 'Waktu Pengunduhan']
+  ];
+
+  list.forEach((d, i) => {
+    rows.push([
+      i + 1,
+      d.participantName,
+      d.peran || 'Peserta',
+      d.eventName || '-',
+      fmtDate(d.downloadDate)
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 6 }, { wch: 32 }, { wch: 22 }, { wch: 32 }, { wch: 24 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Unduhan');
+  XLSX.writeFile(wb, `Riwayat_Unduhan_HIMASI_${Date.now()}.xlsx`);
 }
 
 // ===== SETTINGS ACARA =====
@@ -1089,32 +1276,60 @@ async function saveSettings() {
 function renderPesertaTable() {
   const q = (document.getElementById('admin-search')?.value || '').toLowerCase();
   const filterEvent = document.getElementById('filter-event-select')?.value || '';
+  const filterRole = (document.getElementById('filter-role-select')?.value || '').toLowerCase();
 
   const list = state.participants.filter(p => {
     const matchesQ = !q || p.nama.toLowerCase().includes(q) || (p.eventName && p.eventName.toLowerCase().includes(q));
     const matchesEvent = !filterEvent || p.eventId === filterEvent;
-    return matchesQ && matchesEvent;
+    const matchesRole = !filterRole || p.peran.toLowerCase().includes(filterRole);
+    return matchesQ && matchesEvent && matchesRole;
   });
+
+  const countInfo = document.getElementById('peserta-count-info');
+  if (countInfo) {
+    countInfo.textContent = `Menampilkan ${list.length} dari ${state.participants.length} data peserta`;
+  }
 
   const tbody = document.getElementById('peserta-tbody');
   const empty = document.getElementById('empty-peserta');
-  if (list.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
+  if (!tbody) return;
 
-  tbody.innerHTML = list.map((p, i) => `
+  if (list.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  tbody.innerHTML = list.map((p, i) => {
+    const pRole = (p.peran || 'Peserta').toLowerCase();
+    let badgeClass = 'badge-primary';
+    if (pRole.includes('panitia')) badgeClass = 'badge-gold';
+    else if (pRole.includes('narasumber') || pRole.includes('moderator') || pRole.includes('pembicara')) badgeClass = 'badge-green';
+
+    return `
 <tr>
-  <td style="color:var(--text3)">${i + 1}</td>
-  <td><strong>${p.nama}</strong></td>
-  <td><span class="badge badge-gray">${p.peran}</span></td>
-  <td><span class="badge badge-green" style="font-size:12px;">${p.eventName || 'Acara'}</span></td>
-  <td>${p.downloadCount || 0}</td>
+  <td style="color:var(--text-muted);font-size:12.5px;">${i + 1}</td>
   <td>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-outline btn-sm" onclick="editPeserta('${p.id}')">Edit</button>
-      <button class="btn btn-sm" style="background:var(--danger-light);color:var(--danger);border:none" onclick="deletePeserta('${p.id}')">Hapus</button>
+    <div style="font-weight:700;color:var(--text-main);">${escapeHtml(p.nama)}</div>
+  </td>
+  <td><span class="badge ${badgeClass}" style="font-size:11.5px;">${escapeHtml(p.peran)}</span></td>
+  <td><span class="badge badge-gray" style="font-size:11.5px;">${escapeHtml(p.eventName || 'Acara')}</span></td>
+  <td>
+    <span style="font-weight:700;color:${p.downloadCount > 0 ? 'var(--success)' : 'var(--text-muted)'};">${p.downloadCount || 0}x</span>
+  </td>
+  <td style="text-align:right">
+    <div style="display:inline-flex;gap:6px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" title="Unduh / Cetak Sertifikat" onclick="downloadCert('${p.id}')" style="padding:6px 10px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Cetak</span>
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="editPeserta('${p.id}')" style="padding:6px 10px;">Edit</button>
+      <button class="btn btn-sm" style="background:var(--danger-light);color:var(--danger);border:none;padding:6px 10px;" onclick="deletePeserta('${p.id}')">Hapus</button>
     </div>
   </td>
-</tr>`).join('');
+</tr>`;
+  }).join('');
 }
 
 // ===== MODAL PESERTA =====
@@ -1225,30 +1440,83 @@ function closeModal() {
   });
 }
 
-// ===== DASHBOARD =====
+// ===== DASHBOARD EVENTS LIST & STATS =====
+function renderDashboardEventList() {
+  const container = document.getElementById('dashboard-events-list');
+  if (!container) return;
+  const active = getActiveEvent();
+  if (state.events.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">Belum ada acara terdaftar. Klik "+ Tambah Acara Baru" untuk membuat acara.</p>';
+    return;
+  }
+
+  container.innerHTML = state.events.map(e => {
+    const count = state.participants.filter(p => p.eventId === e.id).length;
+    const hasTpl = !!e.template_url;
+    const isActive = active && active.id === e.id;
+    const dateStr = e.date ? new Date(e.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tanggal belum diatur';
+    return `
+      <div class="event-ov-card" style="${isActive ? 'border-color:var(--primary);box-shadow:var(--shadow-sm);' : ''}">
+        <div class="event-ov-header">
+          <div class="event-ov-title">${escapeHtml(e.name)}</div>
+          ${isActive ? '<span class="badge badge-primary" style="font-size:10px;">Aktif</span>' : ''}
+        </div>
+        <div class="event-ov-meta">
+          📅 ${dateStr} &bull; <strong>${count}</strong> Peserta
+        </div>
+        <div style="margin-bottom:12px;">
+          ${hasTpl 
+            ? '<span class="badge badge-green" style="font-size:11px;">✓ Template HD Siap</span>' 
+            : '<span class="badge" style="font-size:11px;background:var(--accent-gold-light);color:var(--accent-gold);border:1px solid var(--accent-gold-border);">⚠️ Belum Ada Template</span>'
+          }
+        </div>
+        <div class="event-ov-footer" style="gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" style="flex:1; font-size:11.5px; padding:6px 8px;" onclick="onSwitchEvent('${e.id}'); showTab('template', document.querySelector('[data-tab=\\'template\\']'))">
+            Atur Template
+          </button>
+          <button class="btn btn-outline btn-sm" style="flex:1; font-size:11.5px; padding:6px 8px;" onclick="onSwitchEvent('${e.id}'); showTab('upload-peserta', document.querySelector('[data-tab=\\'upload-peserta\\']'))">
+            Import Peserta
+          </button>
+          <button class="btn btn-sm" style="background:var(--danger-light);color:var(--danger);border:none;padding:6px 10px;" title="Hapus Acara" onclick="deleteEventById('${e.id}')">
+            &times;
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderDashboard() {
   const dTotal = document.getElementById('d-total');
   const dDl = document.getElementById('d-downloads');
   const dEv = document.getElementById('d-event');
   const dTemplate = document.getElementById('d-template');
+  const dEventsCount = document.getElementById('d-events-count');
 
   const active = getActiveEvent();
 
   if (dTotal) dTotal.textContent = state.participants.length;
   if (dDl) dDl.textContent = state.downloads.length;
+  if (dEventsCount) dEventsCount.textContent = state.events.length;
   if (dEv) dEv.textContent = active ? active.name : 'Belum diatur';
-  if (dTemplate) dTemplate.textContent = (active && active.template_url) ? 'Aktif' : 'Belum ada';
+  if (dTemplate) dTemplate.textContent = (active && active.template_url) ? '✓ Siap (HD)' : 'Belum ada';
+
+  renderDashboardEventList();
 
   const recent = [...state.downloads].sort((a, b) => b.downloadDate - a.downloadDate).slice(0, 5);
   const tbody = document.getElementById('recent-downloads');
   if (tbody) {
     if (recent.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:13px">Belum ada download.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);font-size:13px;padding:24px;">Belum ada riwayat unduhan sertifikat.</td></tr>';
     } else {
       tbody.innerHTML = recent.map(d => `
     <tr>
-      <td><strong>${d.participantName}</strong> ${d.eventName ? `<span style="font-size:12px;color:var(--text2)">(${d.eventName})</span>` : ''}</td>
-      <td style="color:var(--text2)">${fmtDate(d.downloadDate)}</td>
+      <td>
+        <strong>${escapeHtml(d.participantName)}</strong>
+        ${d.eventName ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${escapeHtml(d.eventName)}</div>` : ''}
+      </td>
+      <td><span class="badge badge-gray" style="font-size:11.5px;">${escapeHtml(d.peran || 'Peserta')}</span></td>
+      <td style="color:var(--text-muted);font-size:13px;">${fmtDate(d.downloadDate)}</td>
     </tr>`).join('');
     }
   }
@@ -1258,7 +1526,8 @@ function renderDashboard() {
 function renderStat() {
   const total = state.participants.length;
   const dl = state.downloads.length;
-  const pct = total > 0 ? Math.round(state.downloads.filter((d, i, a) => a.findIndex(x => x.participantId === d.participantId) === i).length / total * 100) : 0;
+  const uniqueDl = state.downloads.filter((d, i, a) => a.findIndex(x => x.participantId === d.participantId) === i).length;
+  const pct = total > 0 ? Math.round(uniqueDl / total * 100) : 0;
   
   const sTotal = document.getElementById('s-total');
   const sDl = document.getElementById('s-downloads');
@@ -1267,7 +1536,16 @@ function renderStat() {
   if (sDl) sDl.textContent = dl;
   if (sPct) sPct.textContent = pct + '%';
 
-  const sorted = [...state.downloads].sort((a, b) => b.downloadDate - a.downloadDate);
+  const q = (document.getElementById('stat-search')?.value || '').toLowerCase();
+  const filterEvent = document.getElementById('filter-dl-event-select')?.value || '';
+
+  const list = state.downloads.filter(d => {
+    const matchesQ = !q || (d.participantName && d.participantName.toLowerCase().includes(q));
+    const matchesEvent = !filterEvent || (d.eventId === filterEvent || (d.eventName && d.eventName === filterEvent));
+    return matchesQ && matchesEvent;
+  });
+
+  const sorted = [...list].sort((a, b) => b.downloadDate - a.downloadDate);
   const tbody = document.getElementById('stat-tbody');
   const empty = document.getElementById('empty-stat');
   if (!tbody) return;
@@ -1281,16 +1559,16 @@ function renderStat() {
 
   tbody.innerHTML = sorted.map((d, i) => `
 <tr>
-  <td style="color:var(--text3)">${i + 1}</td>
-  <td><strong>${d.participantName}</strong></td>
-  <td><span class="badge badge-gray">${d.peran}</span></td>
-  <td><span class="badge badge-green" style="font-size:12px;">${d.eventName || 'Acara'}</span></td>
-  <td style="color:var(--text2)">${fmtDate(d.downloadDate)}</td>
+  <td style="color:var(--text-muted);font-size:12.5px;">${i + 1}</td>
+  <td><strong>${escapeHtml(d.participantName)}</strong></td>
+  <td><span class="badge badge-gray" style="font-size:11.5px;">${escapeHtml(d.peran || 'Peserta')}</span></td>
+  <td><span class="badge badge-green" style="font-size:11.5px;">${escapeHtml(d.eventName || 'Acara')}</span></td>
+  <td style="color:var(--text-muted);font-size:13px;">${fmtDate(d.downloadDate)}</td>
 </tr>`).join('');
 }
 
 async function clearDownloads() {
-  if (!confirm('Hapus semua riwayat download?')) return;
+  if (!confirm('Apakah Anda yakin ingin menghapus semua riwayat download?')) return;
 
   try {
     const { error: dlErr } = await sb.from("downloads").delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -1370,9 +1648,12 @@ window.onSelectPubEvent = onSelectPubEvent;
 window.showAddEventModal = showAddEventModal;
 window.createEvent = createEvent;
 window.deleteActiveEvent = deleteActiveEvent;
+window.deleteEventById = deleteEventById;
 window.onSwitchEvent = onSwitchEvent;
 window.saveSettings = saveSettings;
 window.savePositions = savePositions;
+window.resetPositionsDefault = resetPositionsDefault;
+window.previewDummyPDF = previewDummyPDF;
 window.handleTemplate = handleTemplate;
 window.showAddModal = showAddModal;
 window.editPeserta = editPeserta;
@@ -1381,8 +1662,14 @@ window.confirmDelete = confirmDelete;
 window.savePeserta = savePeserta;
 window.closeModal = closeModal;
 window.handleExcel = handleExcel;
+window.renderPreview = renderPreview;
 window.importData = importData;
+window.downloadExcelTemplate = downloadExcelTemplate;
+window.exportPesertaToExcel = exportPesertaToExcel;
+window.exportDownloadsToExcel = exportDownloadsToExcel;
 window.renderPesertaTable = renderPesertaTable;
+window.renderDashboardEventList = renderDashboardEventList;
+window.renderEventPills = renderEventPills;
 window.clearDownloads = clearDownloads;
 window.updateEditorStyle = updateEditorStyle;
 window.toggleMobileMenu = toggleMobileMenu;
