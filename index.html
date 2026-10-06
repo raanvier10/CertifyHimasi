@@ -726,27 +726,42 @@
           </div>
 
           <div class="card" style="margin-bottom:20px;">
-            <h3 style="font-size:14px; font-weight:700; margin-bottom:10px;">Format Kolom Excel yang Didukung</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+              <h3 style="font-size:14px; font-weight:700; margin-bottom:0;">Format Kolom Excel yang Didukung</h3>
+              <span class="badge badge-primary" style="font-size:11px;">Mendukung Multi-Acara & Multi-Peran</span>
+            </div>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+              Anda dapat mendaftarkan satu peserta ke beberapa acara sekaligus dengan memisahkan perannya dan acaranya menggunakan tanda koma (misal: <code>PDD, Acara</code> & <code>Pengabdian, WorkshopUiUX</code>). Jika kolom kegiatan dikosongkan, data akan masuk ke acara target yang dipilih di atas.
+            </p>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>Nama Lengkap</th>
                     <th>Peran</th>
+                    <th>Kegiatan / Acara (Opsional)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Ahmad Fauzi</td>
+                    <td><strong>Muhammad Adam</strong></td>
+                    <td>PDD, Acara</td>
+                    <td>Pengabdian, WorkshopUiUX</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Ahmad Fauzi</strong></td>
                     <td>Peserta</td>
+                    <td>Workshop UI/UX Design</td>
                   </tr>
                   <tr>
-                    <td>Dian Pratama</td>
+                    <td><strong>Dian Pratama</strong></td>
                     <td>Panitia Koordinator Acara</td>
+                    <td><em>(Kosong &rarr; ikut acara target di atas)</em></td>
                   </tr>
                   <tr>
-                    <td>Dr. Hendra Gunawan, M.Kom.</td>
+                    <td><strong>Dr. Hendra Gunawan, M.Kom.</strong></td>
                     <td>Narasumber</td>
+                    <td>Seminar Nasional IT</td>
                   </tr>
                 </tbody>
               </table>
@@ -761,8 +776,8 @@
               <line x1="9" y1="15" x2="15" y2="15" />
             </svg>
             <p>Klik atau seret file Excel di sini</p>
-            <span>Mendukung format .xlsx dan .xls</span>
-            <input type="file" id="excel-input" accept=".xlsx,.xls" onchange="handleExcel(this)">
+            <span>Mendukung format .xlsx, .xls, dan .csv</span>
+            <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" onchange="handleExcel(this)">
           </div>
 
           <div id="upload-msg" class="alert" style="display:none; margin-top:14px;"></div>
@@ -785,6 +800,7 @@
                     <th>#</th>
                     <th>Nama Lengkap</th>
                     <th>Peran</th>
+                    <th>Kegiatan / Acara</th>
                     <th>Status</th>
                   </tr>
                 </thead>

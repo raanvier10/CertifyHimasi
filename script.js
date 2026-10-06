@@ -694,10 +694,11 @@ function doSearch() {
     if (rLower.startsWith('sie ') || rLower.startsWith('divisi ')) {
       return { label: `Panitia · ${r}`, type: 'panitia' };
     }
-    if (r.length <= 15 && !rLower.includes('peserta')) {
+    if (r.length <= 4) {
       return { label: `Panitia · Sie ${r.toUpperCase()}`, type: 'panitia' };
     }
-    return { label: r, type: 'custom' };
+    const titleCase = r.charAt(0).toUpperCase() + r.slice(1);
+    return { label: `Panitia · Sie ${titleCase}`, type: 'panitia' };
   }
 
   // Helper: Nama kegiatan yang informatif dan tidak jatuh ke fallback mentah
@@ -733,8 +734,11 @@ function doSearch() {
     const firstItem = items[0];
     const initialEventName = getResolvedEventName(firstItem);
     const initialRole = formatRoleBadge(firstItem.peran);
-    const rawId = firstItem.id || String(Math.abs(name.split('').reduce((a, c) => ((a << 5) - a) + c.charCodeAt(0) | 0, 0)));
-    const cleanId = rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'HM26';
+    const getCleanId = (it) => {
+      const rawId = it.id || String(Math.abs((it.nama || name).split('').reduce((a, c) => ((a << 5) - a) + c.charCodeAt(0) | 0, 0)));
+      return rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'HM26';
+    };
+    const cleanId = getCleanId(firstItem);
 
     return `
     <div class="pub-result-card">
@@ -746,7 +750,7 @@ function doSearch() {
           </svg>
           Terverifikasi
         </span>
-        <span class="credential-id-badge">CN-${cleanId}</span>
+        <span class="credential-id-badge" id="pub-cid-${gIdx}">CN-${cleanId}</span>
       </div>
 
       <!-- Recipient Presentation -->
@@ -755,38 +759,33 @@ function doSearch() {
         <h3 class="credential-name">${escapeHtml(name)}</h3>
       </div>
 
-      ${isMulti ? `
-        <div class="multi-event-wrapper">
-          <label class="multi-event-label">
-            Pilih kegiatan
-          </label>
-          <div class="select-wrap">
-            <select class="input res-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
-              ${items.map((it, idx) => {
-      const evN = getResolvedEventName(it);
-      const rB = formatRoleBadge(it.peran);
-      return `
-                <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(evN)}" ${idx === 0 ? 'selected' : ''}>
-                  ${escapeHtml(evN)} · Sebagai ${escapeHtml(rB.label)}
-                </option>
-                `;
-    }).join('')}
-            </select>
-          </div>
-        </div>
-      ` : ''}
-
       <!-- Credential Details Grid -->
       <div class="credential-details-grid">
         <div class="detail-item-card">
           <div class="detail-item-lbl">Kegiatan</div>
-          <div class="detail-item-val" id="pub-meta-event-${gIdx}">${escapeHtml(initialEventName)}</div>
+          <div class="detail-item-val" id="pub-meta-event-${gIdx}">
+            ${isMulti ? `
+              <div class="credential-select-wrap">
+                <select class="credential-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
+                  ${items.map((it, idx) => {
+                    const evN = getResolvedEventName(it);
+                    const itCleanId = getCleanId(it);
+                    return `
+                      <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(evN)}" data-cid="CN-${itCleanId}" ${idx === 0 ? 'selected' : ''}>
+                        ${escapeHtml(evN)}
+                      </option>
+                    `;
+                  }).join('')}
+                </select>
+              </div>
+            ` : escapeHtml(initialEventName)}
+          </div>
         </div>
 
         <div class="detail-item-card">
           <div class="detail-item-lbl">Peran</div>
           <div class="detail-item-val">
-            <span class="role-badge role-${initialRole.type}" id="pub-meta-role-${gIdx}">
+            <span class="role-badge" id="pub-meta-role-${gIdx}">
               ${escapeHtml(initialRole.label)}
             </span>
           </div>
@@ -795,7 +794,7 @@ function doSearch() {
 
       <!-- Action Area -->
       <div class="credential-action-area">
-        <button class="credential-btn-download" onclick="${isMulti ? `downloadCert(document.getElementById('pub-sel-${gIdx}').value)` : `downloadCert('${escapeHtml(firstItem.id)}')`}">
+        <button class="credential-btn-download" id="pub-btn-${gIdx}" onclick="${isMulti ? `downloadCert(document.getElementById('pub-sel-${gIdx}').value)` : `downloadCert('${escapeHtml(firstItem.id)}')`}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
@@ -830,15 +829,16 @@ function onSelectPubEvent(gIdx) {
   const opt = sel.options[sel.selectedIndex];
   if (!opt) return;
   const role = opt.getAttribute('data-role');
-  const evName = opt.getAttribute('data-event');
+  const cid = opt.getAttribute('data-cid');
   const roleEl = document.getElementById('pub-meta-role-' + gIdx);
-  const evEl = document.getElementById('pub-meta-event-' + gIdx);
+  const cidEl = document.getElementById('pub-cid-' + gIdx);
   if (roleEl) {
     const fRole = formatRoleBadge(role);
     roleEl.textContent = fRole.label;
-    roleEl.className = 'role-badge role-' + fRole.type;
   }
-  if (evEl) evEl.textContent = evName || '';
+  if (cidEl && cid) {
+    cidEl.textContent = cid;
+  }
 }
 
 function toggleMobileMenu() {
@@ -1273,55 +1273,154 @@ function handleExcel(input) {
   const file = input.files[0];
   if (!file) { return; }
   const ext = file.name.split('.').pop().toLowerCase();
-  if (!['xlsx', 'xls'].includes(ext)) {
-    showMsg('upload-msg', 'error', 'Hanya menerima file .xlsx and .xls');
+  if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+    showMsg('upload-msg', 'error', 'Hanya menerima file .xlsx, .xls, atau .csv');
     return;
   }
   const reader = new FileReader();
   reader.onload = function (e) {
-    const wb = XLSX.read(e.target.result, { type: 'binary' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    let headerRow = -1;
-    for (let i = 0; i < Math.min(5, data.length); i++) {
-      const row = data[i].map(c => String(c).toLowerCase().trim());
-      if (row.some(c => c.includes('nama')) && row.some(c => c.includes('peran'))) { headerRow = i; break; }
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!data || data.length === 0) {
+        showMsg('upload-msg', 'error', 'File Excel kosong atau tidak terbaca.');
+        return;
+      }
+
+      let headerRow = -1;
+      let namaIdx = -1;
+      let peranIdx = -1;
+      let acaraIdx = -1;
+
+      for (let i = 0; i < Math.min(5, data.length); i++) {
+        const row = data[i].map(c => String(c || '').toLowerCase().trim());
+        const nI = row.findIndex(c => c.includes('nama') || c === 'name');
+        const pI = row.findIndex(c => c.includes('peran') || c.includes('role') || c.includes('jabatan'));
+        const aI = row.findIndex(c => c.includes('acara') || c.includes('kegiatan') || c.includes('event'));
+        if (nI >= 0 && (pI >= 0 || aI >= 0)) {
+          headerRow = i;
+          namaIdx = nI;
+          peranIdx = pI;
+          acaraIdx = aI;
+          break;
+        }
+      }
+
+      let rawRows = [];
+      if (headerRow >= 0) {
+        rawRows = data.slice(headerRow + 1);
+      } else {
+        // Fallback jika file tanpa header
+        namaIdx = 0;
+        peranIdx = 1;
+        acaraIdx = 2;
+        rawRows = data;
+      }
+
+      const validRows = rawRows.filter(r => {
+        const n = String(r[namaIdx] || '').trim();
+        const p = peranIdx >= 0 ? String(r[peranIdx] || '').trim() : '';
+        const a = acaraIdx >= 0 ? String(r[acaraIdx] || '').trim() : '';
+        return n || p || a;
+      });
+
+      const parsedItems = [];
+
+      validRows.forEach((r, rowIdx) => {
+        const rawNama = String(r[namaIdx] || '').trim();
+        const rawPeran = peranIdx >= 0 ? String(r[peranIdx] || '').trim() : '';
+        const rawAcara = acaraIdx >= 0 ? String(r[acaraIdx] || '').trim() : '';
+
+        if (!rawNama) {
+          parsedItems.push({
+            rowNum: rowIdx + 1,
+            nama: '',
+            peran: rawPeran,
+            acara: rawAcara,
+            valid: false,
+            error: 'Nama tidak boleh kosong'
+          });
+          return;
+        }
+
+        // Support pemisah koma atau baris baru untuk multi-kegiatan & multi-peran
+        // Format contoh: Muhammad adam | PDD,Acara | Pengabdian,WorkshopUiUX
+        const roles = rawPeran
+          ? rawPeran.split(/[,;\n]/).map(s => s.trim()).filter(Boolean)
+          : ['Peserta'];
+        
+        const events = rawAcara
+          ? rawAcara.split(/[,;\n]/).map(s => s.trim()).filter(Boolean)
+          : [];
+
+        if (events.length > 0) {
+          const maxCount = Math.max(events.length, roles.length);
+          for (let k = 0; k < maxCount; k++) {
+            const evName = events[k] || events[events.length - 1];
+            const rRole = roles[k] || roles[roles.length - 1] || 'Peserta';
+            parsedItems.push({
+              rowNum: rowIdx + 1,
+              nama: rawNama,
+              peran: rRole,
+              acara: evName,
+              valid: !!(rawNama && rRole),
+              error: null
+            });
+          }
+        } else {
+          if (roles.length > 1) {
+            roles.forEach(rRole => {
+              parsedItems.push({
+                rowNum: rowIdx + 1,
+                nama: rawNama,
+                peran: rRole,
+                acara: '',
+                valid: !!(rawNama && rRole),
+                error: null
+              });
+            });
+          } else {
+            parsedItems.push({
+              rowNum: rowIdx + 1,
+              nama: rawNama,
+              peran: roles[0] || 'Peserta',
+              acara: '',
+              valid: !!(rawNama && (roles[0] || 'Peserta')),
+              error: null
+            });
+          }
+        }
+      });
+
+      state.previewData = parsedItems;
+      if (state.previewData.length === 0) {
+        showMsg('upload-msg', 'error', 'Tidak ada data valid yang dapat dibaca.');
+        return;
+      }
+
+      showMsg('upload-msg', 'success', `Berhasil membaca & mengurai ${state.previewData.length} entri sertifikat dari file Excel.`);
+      renderPreview();
+    } catch (err) {
+      console.error('Error membaca excel:', err);
+      showMsg('upload-msg', 'error', 'Gagal memproses file Excel: ' + (err.message || err));
     }
-    if (headerRow < 0) {
-      showMsg('upload-msg', 'error', 'Kolom "Nama Lengkap" dan "Peran" tidak ditemukan.');
-      return;
-    }
-    const headers = data[headerRow].map(c => String(c).toLowerCase().trim());
-    const namaIdx = headers.findIndex(c => c.includes('nama'));
-    const peranIdx = headers.findIndex(c => c.includes('peran'));
-    const rows = data.slice(headerRow + 1).filter(r => r[namaIdx] || r[peranIdx]);
-    state.previewData = rows.map((r, i) => ({
-      nama: String(r[namaIdx] || '').trim(),
-      peran: String(r[peranIdx] || '').trim(),
-      valid: !!(String(r[namaIdx] || '').trim() && String(r[peranIdx] || '').trim())
-    }));
-    if (state.previewData.length === 0) {
-      showMsg('upload-msg', 'error', 'Tidak ada data yang dapat dibaca.');
-      return;
-    }
-    showMsg('upload-msg', 'success', `Berhasil membaca ${state.previewData.length} baris.`);
-    renderPreview();
   };
   reader.readAsBinaryString(file);
 }
 
 function downloadExcelTemplate() {
   const wsData = [
-    ['Nama Lengkap', 'Peran'],
-    ['Ahmad Fauzi Nugraha', 'Peserta'],
-    ['Dian Pratama', 'Panitia Koordinator Acara'],
-    ['Dr. Hendra Gunawan, M.Kom.', 'Narasumber'],
-    ['Siti Rahmawati', 'Moderator'],
-    ['Budi Santoso', 'Peserta']
+    ['Nama Lengkap', 'Peran', 'Kegiatan / Acara'],
+    ['Muhammad Adam', 'PDD, Acara', 'Pengabdian, WorkshopUiUX'],
+    ['Ahmad Fauzi Nugraha', 'Peserta', 'Workshop UI/UX Design'],
+    ['Dian Pratama', 'Koordinator Acara', 'Seminar Nasional IT'],
+    ['Dr. Hendra Gunawan, M.Kom.', 'Narasumber', 'Seminar Nasional IT'],
+    ['Siti Rahmawati', 'Moderator', 'Workshop UI/UX Design']
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{ wch: 32 }, { wch: 28 }];
+  ws['!cols'] = [{ wch: 30 }, { wch: 25 }, { wch: 32 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Template Peserta');
   XLSX.writeFile(wb, 'Template_Import_Peserta_HIMASI.xlsx');
 }
@@ -1342,13 +1441,21 @@ function renderPreview() {
 
   if (!tbody) return;
 
-  tbody.innerHTML = state.previewData.map((r, i) => `
+  const targetEventId = document.getElementById('upload-event-select')?.value;
+  const defaultEvent = state.events.find(e => e.id === targetEventId) || getActiveEvent();
+  const defaultEventName = defaultEvent ? defaultEvent.name : 'Acara Terpilih';
+
+  tbody.innerHTML = state.previewData.map((r, i) => {
+    const displayEvent = r.acara ? escapeHtml(r.acara) : `<span style="color:var(--text-muted);font-style:italic;">Default (${escapeHtml(defaultEventName)})</span>`;
+    return `
 <tr>
-  <td>${i + 1}</td>
-  <td>${r.nama ? escapeHtml(r.nama) : '<span style="color:var(--danger)">kosong</span>'}</td>
+  <td style="color:var(--text-muted);font-size:12.5px;">${i + 1}</td>
+  <td>${r.nama ? `<strong style="color:var(--text-main);">${escapeHtml(r.nama)}</strong>` : '<span style="color:var(--danger)">kosong</span>'}</td>
   <td>${r.peran ? escapeHtml(r.peran) : '<span style="color:var(--danger)">kosong</span>'}</td>
+  <td>${displayEvent}</td>
   <td><span class="badge ${r.valid ? 'badge-green' : 'badge'}" style="${!r.valid ? 'background:var(--danger-light);color:var(--danger)' : ''}">${r.valid ? 'Valid' : 'Tidak Valid'}</span></td>
-</tr>`).join('');
+</tr>`;
+  }).join('');
   document.getElementById('preview-table').style.display = 'block';
 }
 
@@ -1357,34 +1464,77 @@ async function importData() {
   if (valid.length === 0) { showMsg('upload-msg', 'error', 'Tidak ada data valid untuk diimport.'); return; }
 
   const targetEventId = document.getElementById('upload-event-select')?.value;
-  const targetEvent = state.events.find(e => e.id === targetEventId) || getActiveEvent();
-  if (!targetEvent) {
-    showMsg('upload-msg', 'error', 'Pilih acara target terlebih dahulu.');
-    return;
-  }
+  const defaultTarget = state.events.find(e => e.id === targetEventId) || getActiveEvent();
 
-  showMsg('upload-msg', 'success', `Sedang mengimport ${valid.length} data peserta ke acara "${targetEvent.name}"...`);
+  showMsg('upload-msg', 'success', `Sedang memproses & mengimport ${valid.length} data peserta...`);
 
   try {
-    const rows = valid.map(r => ({
-      nama: r.nama,
-      peran: r.peran,
-      event_id: targetEvent.id,
-      event_name: targetEvent.name,
-      download_count: 0
-    }));
+    // 1. Identifikasi semua nama acara unik dari Excel
+    const acaraNames = [...new Set(valid.map(r => r.acara ? r.acara.trim() : '').filter(Boolean))];
+    
+    // 2. Buat acara otomatis di Supabase jika acara belum terdaftar
+    for (const acName of acaraNames) {
+      const exists = state.events.find(e => (e.name || '').trim().toLowerCase() === acName.toLowerCase());
+      if (!exists && sb) {
+        const initialPos = {
+          name: { x: 148, y: 105, size: 32 },
+          role: { x: 148, y: 132, size: 18 },
+          event: { x: 148, y: 155, size: 12 },
+          color: '#1E255E'
+        };
+        const { data: createdEv, error: evErr } = await sb.from('events').insert({
+          name: acName,
+          date: null,
+          positions: initialPos
+        }).select();
+        
+        if (!evErr && createdEv && createdEv.length > 0) {
+          state.events.push(createdEv[0]);
+        }
+      }
+    }
 
-    // Insert batch ke Supabase (maks 200 baris per request)
-    for (let i = 0; i < rows.length; i += 200) {
-      const chunk = rows.slice(i, i + 200);
-      const { error } = await sb.from("participants").insert(chunk);
-      if (error) throw error;
+    // Refresh daftar events dari database
+    await loadEvents();
+
+    // 3. Susun data baris peserta sesuai ID acara yang cocok
+    const rows = valid.map(r => {
+      let matchedEv = null;
+      if (r.acara) {
+        matchedEv = state.events.find(e => (e.name || '').trim().toLowerCase() === r.acara.trim().toLowerCase());
+      }
+      if (!matchedEv) {
+        matchedEv = defaultTarget || state.events[0];
+      }
+
+      return {
+        nama: r.nama,
+        peran: r.peran,
+        event_id: matchedEv ? matchedEv.id : null,
+        event_name: matchedEv ? matchedEv.name : (r.acara || 'Kegiatan'),
+        download_count: 0
+      };
+    });
+
+    // 4. Batch insert ke Supabase (maksimal 200 baris per request)
+    if (sb) {
+      for (let i = 0; i < rows.length; i += 200) {
+        const chunk = rows.slice(i, i + 200);
+        const { error } = await sb.from("participants").insert(chunk);
+        if (error) throw error;
+      }
     }
 
     await loadParticipants();
-    showMsg('upload-msg', 'success', `Berhasil mengimport ${valid.length} peserta ke acara "${targetEvent.name}"!`);
+    renderEventDropdowns();
+    renderPesertaTable();
+
+    showMsg('upload-msg', 'success', `Berhasil mengimport ${valid.length} data sertifikat peserta ke sistem!`);
     document.getElementById('preview-table').style.display = 'none';
     state.previewData = [];
+
+    const fin = document.getElementById('excel-input');
+    if (fin) fin.value = '';
   } catch (err) {
     console.error(err);
     showMsg('upload-msg', 'error', 'Gagal mengimport data: ' + (err.message || err));
