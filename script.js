@@ -5,11 +5,13 @@ const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE
 
 // ===== STATE =====
 let state = {
+  events: [],
+  activeEventId: null,
   participants: [],
   downloads: [],
-  settings: { 
-    eventName: 'Workshop UI/UX Design', 
-    eventDate: '2025-07-15', 
+  settings: {
+    eventName: 'Workshop UI/UX Design',
+    eventDate: '2025-07-15',
     certificateTemplate: null,
     positions: {
       name: { x: 148, y: 105, size: 32 },
@@ -29,14 +31,165 @@ function showPage(p) {
   const target = document.getElementById('page-' + p);
   if (target) target.classList.add('active');
   if (p === 'public') updatePublicStats();
-  if (p === 'admin') { renderDashboard(); renderPesertaTable(); renderStat(); }
+  if (p === 'admin') {
+    renderDashboard();
+    renderPesertaTable();
+    renderStat();
+  }
 }
 window.showPage = showPage;
+
+// ===== EVENT HELPERS =====
+function getActiveEvent() {
+  if (state.activeEventId) {
+    const found = state.events.find(e => e.id === state.activeEventId);
+    if (found) return found;
+  }
+  return state.events[0] || null;
+}
+
+function onSwitchEvent(eventId) {
+  state.activeEventId = eventId;
+  const ev = getActiveEvent();
+  if (!ev) return;
+
+  const nameEl = document.getElementById('event-name');
+  const dateEl = document.getElementById('event-date');
+  if (nameEl) nameEl.value = ev.name || '';
+  if (dateEl) dateEl.value = ev.date || '';
+
+  state.settings.eventName = ev.name || '';
+  state.settings.eventDate = ev.date || '';
+  state.settings.certificateTemplate = ev.template_url || null;
+  state.settings.positions = ev.positions || {
+    name: { x: 148, y: 105, size: 32 },
+    role: { x: 148, y: 132, size: 18 },
+    event: { x: 148, y: 155, size: 12 },
+    color: '#30338A'
+  };
+
+  setEditorTemplate(ev.template_url);
+  applyPositions();
+  updatePublicStats();
+  renderDashboard();
+}
+
+function renderEventDropdowns() {
+  const evs = state.events;
+  const active = getActiveEvent();
+
+  // 1. Selector di Tab Template
+  const eventSelect = document.getElementById('event-select');
+  if (eventSelect) {
+    eventSelect.innerHTML = evs.map(e => `
+      <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
+        ${e.name} ${e.date ? '(' + e.date + ')' : ''}
+      </option>
+    `).join('');
+  }
+
+  // 2. Selector di Tab Upload Peserta
+  const uploadSelect = document.getElementById('upload-event-select');
+  if (uploadSelect) {
+    uploadSelect.innerHTML = evs.map(e => `
+      <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
+        ${e.name}
+      </option>
+    `).join('');
+  }
+
+  // 3. Filter di Tab Kelola Peserta
+  const filterSelect = document.getElementById('filter-event-select');
+  if (filterSelect) {
+    const currentVal = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">Semua Acara</option>' + evs.map(e => `
+      <option value="${e.id}" ${currentVal === e.id ? 'selected' : ''}>
+        ${e.name}
+      </option>
+    `).join('');
+  }
+
+  // 4. Selector di Modal Tambah/Edit Peserta
+  const modalSelect = document.getElementById('modal-event-select');
+  if (modalSelect) {
+    modalSelect.innerHTML = evs.map(e => `
+      <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
+        ${e.name}
+      </option>
+    `).join('');
+  }
+}
+
+function showAddEventModal() {
+  document.getElementById('new-event-name').value = '';
+  document.getElementById('new-event-date').value = '';
+  document.getElementById('modal-event-error').style.display = 'none';
+  document.getElementById('modal-add-event').style.display = 'flex';
+}
+
+async function createEvent() {
+  const name = document.getElementById('new-event-name').value.trim();
+  const date = document.getElementById('new-event-date').value;
+  const err = document.getElementById('modal-event-error');
+
+  if (!name) {
+    err.textContent = 'Nama kegiatan tidak boleh kosong.';
+    err.style.display = 'block';
+    return;
+  }
+
+  try {
+    const initialPos = {
+      name: { x: 148, y: 105, size: 32 },
+      role: { x: 148, y: 132, size: 18 },
+      event: { x: 148, y: 155, size: 12 },
+      color: '#30338A'
+    };
+
+    const { data, error } = await sb.from('events').insert({
+      name,
+      date,
+      positions: initialPos
+    }).select().single();
+
+    if (error) throw error;
+    closeModal();
+    await loadEvents();
+    if (data && data.id) {
+      onSwitchEvent(data.id);
+    }
+  } catch (e) {
+    console.error(e);
+    err.textContent = 'Gagal membuat acara: ' + (e.message || e);
+    err.style.display = 'block';
+  }
+}
+
+async function deleteActiveEvent() {
+  const ev = getActiveEvent();
+  if (!ev) return;
+  if (state.events.length <= 1) {
+    alert('Minimal harus ada 1 acara. Tidak bisa menghapus semua acara.');
+    return;
+  }
+
+  if (!confirm(`Apakah Anda yakin ingin menghapus acara "${ev.name}"? Data peserta yang terdaftar pada acara ini juga akan terhapus.`)) return;
+
+  try {
+    const { error } = await sb.from('events').delete().eq('id', ev.id);
+    if (error) throw error;
+    state.activeEventId = null;
+    await Promise.all([loadEvents(), loadParticipants()]);
+  } catch (e) {
+    console.error(e);
+    alert('Gagal menghapus acara: ' + (e.message || e));
+  }
+}
 
 // ===== SINKRONISASI DATA SUPABASE =====
 async function syncData() {
   await Promise.all([
-    loadSettings(),
+    loadEvents(),
     loadParticipants(),
     loadDownloads()
   ]);
@@ -44,41 +197,61 @@ async function syncData() {
   // Setup Realtime Subscription
   if (sb) {
     sb.channel('certifynow-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => loadSettings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { loadEvents(); loadParticipants(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => loadParticipants())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'downloads' }, () => loadDownloads())
       .subscribe();
   }
 }
 
-async function loadSettings() {
+async function loadEvents() {
   if (!sb) return;
   try {
-    const { data, error } = await sb.from('settings').select('*').eq('id', 'main').single();
-    if (error && error.code !== 'PGRST116') throw error;
-    if (data) {
-      state.settings = {
-        ...state.settings,
-        eventName: data.event_name || state.settings.eventName,
-        eventDate: data.event_date || state.settings.eventDate,
-        certificateTemplate: data.certificate_template || null,
-        positions: {
-          ...state.settings.positions,
-          ...(data.positions || {})
-        }
-      };
-      updatePublicStats();
+    const { data, error } = await sb.from('events').select('*').order('created_at', { ascending: true });
+    if (error) throw error;
 
+    if (data && data.length > 0) {
+      state.events = data;
+      if (!state.activeEventId || !state.events.some(e => e.id === state.activeEventId)) {
+        state.activeEventId = state.events[0].id;
+      }
+    } else {
+      // Fallback default
+      state.events = [{
+        id: 'default',
+        name: 'Workshop UI/UX Design',
+        date: '2025-07-15',
+        template_url: null,
+        positions: {
+          name: { x: 148, y: 105, size: 32 },
+          role: { x: 148, y: 132, size: 18 },
+          event: { x: 148, y: 155, size: 12 },
+          color: '#30338A'
+        }
+      }];
+      state.activeEventId = 'default';
+    }
+
+    renderEventDropdowns();
+
+    const active = getActiveEvent();
+    if (active) {
       const nameEl = document.getElementById('event-name');
       const dateEl = document.getElementById('event-date');
-      if (nameEl && data.event_name) nameEl.value = data.event_name;
-      if (dateEl && data.event_date) dateEl.value = data.event_date;
+      if (nameEl) nameEl.value = active.name || '';
+      if (dateEl) dateEl.value = active.date || '';
 
-      setEditorTemplate(state.settings.certificateTemplate);
+      state.settings.eventName = active.name || '';
+      state.settings.eventDate = active.date || '';
+      state.settings.certificateTemplate = active.template_url || null;
+      state.settings.positions = active.positions || state.settings.positions;
+
+      setEditorTemplate(active.template_url);
       applyPositions();
     }
+    updatePublicStats();
   } catch (err) {
-    console.error("Gagal load settings:", err);
+    console.error("Gagal load events:", err);
   }
 }
 
@@ -87,13 +260,18 @@ async function loadParticipants() {
   try {
     const { data, error } = await sb.from('participants').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    state.participants = (data || []).map(r => ({
-      id: r.id,
-      nama: r.nama,
-      peran: r.peran,
-      downloadCount: r.download_count || 0,
-      createdAt: r.created_at
-    }));
+    state.participants = (data || []).map(r => {
+      const ev = state.events.find(e => e.id === r.event_id);
+      return {
+        id: r.id,
+        nama: r.nama,
+        peran: r.peran,
+        eventId: r.event_id,
+        eventName: r.event_name || (ev ? ev.name : 'Acara'),
+        downloadCount: r.download_count || 0,
+        createdAt: r.created_at
+      };
+    });
     updatePublicStats();
     if (document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active')) {
       renderDashboard();
@@ -114,6 +292,7 @@ async function loadDownloads() {
       participantId: r.participant_id,
       participantName: r.participant_name,
       peran: r.peran,
+      eventName: r.event_name || '',
       downloadDate: r.download_date ? new Date(r.download_date) : null
     }));
     if (document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active')) {
@@ -124,22 +303,35 @@ async function loadDownloads() {
   }
 }
 
-// Ambil data saat inisialisasi
+// Inisialisasi data
 syncData();
 
 function showTab(tab, el) {
   document.querySelectorAll('[id^="tab-"]').forEach(x => x.style.display = 'none');
-  document.getElementById('tab-' + tab).style.display = 'block';
+  const target = document.getElementById('tab-' + tab);
+  if (target) target.style.display = 'block';
+
   document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
   if (el) el.classList.add('active');
-  const titles = { dashboard: 'Dashboard', 'upload-peserta': 'Upload Data Peserta', kelola: 'Kelola Peserta', template: 'Upload Template', statistik: 'Statistik' };
+
+  const titles = {
+    dashboard: 'Dashboard',
+    'upload-peserta': 'Upload Data Peserta',
+    kelola: 'Kelola Peserta',
+    template: 'Kelola Acara & Template',
+    statistik: 'Statistik'
+  };
   document.getElementById('admin-title').textContent = titles[tab] || tab;
+
   if (tab === 'statistik') renderStat();
   if (tab === 'kelola') renderPesertaTable();
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'template') {
-    setEditorTemplate(state.settings.certificateTemplate);
-    requestAnimationFrame(() => applyPositions());
+    const active = getActiveEvent();
+    if (active) {
+      setEditorTemplate(active.template_url);
+      requestAnimationFrame(() => applyPositions());
+    }
   }
 }
 
@@ -174,37 +366,64 @@ function doLogout() {
 
 // ===== PUBLIC SEARCH =====
 function doSearch() {
-  const q = document.getElementById('pub-search').value.trim().toLowerCase();
+  const q = (document.getElementById('pub-search').value || '').trim().toLowerCase();
   const area = document.getElementById('result-area');
   if (!q) { area.innerHTML = ''; return; }
-  const found = state.participants.find(p => p.nama.toLowerCase().includes(q));
-  if (found) {
-    area.innerHTML = `
-  <div class="result-card">
-    <span class="badge badge-green">✓ Data Ditemukan</span>
-    <div class="r-name">${found.nama}</div>
-    <div class="r-role">${found.peran}</div>
-    <div class="r-status">Status: Terdaftar sebagai ${found.peran}</div>
-    <button class="btn btn-primary" onclick="downloadCert('${found.id}')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Unduh Sertifikat
-    </button>
-  </div>`;
-  } else {
+
+  const matches = state.participants.filter(p => p.nama.toLowerCase().includes(q));
+  if (matches.length === 0) {
     area.innerHTML = `<div class="not-found">😔 Nama tidak ditemukan. Pastikan nama sesuai dengan saat pendaftaran.</div>`;
+    return;
   }
+
+  // Kelompokkan hasil pencarian berdasarkan nama yang sama
+  const groups = {};
+  matches.forEach(m => {
+    const key = m.nama.trim();
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(m);
+  });
+
+  area.innerHTML = Object.entries(groups).map(([name, items], gIdx) => {
+    const isMulti = items.length > 1;
+    return `
+    <div class="result-card" style="margin-bottom:16px;">
+      <span class="badge badge-green">✓ Data Ditemukan</span>
+      <div class="r-name">${name}</div>
+      ${isMulti ? `
+        <div style="margin:12px 0 6px; font-size:13px; font-weight:600; color:var(--text)">
+          Terdaftar di ${items.length} Kegiatan (Pilih sertifikat):
+        </div>
+        <select class="input" id="pub-sel-${gIdx}" style="margin-bottom:14px; font-weight:500;">
+          ${items.map(it => `
+            <option value="${it.id}">
+              ${it.eventName || 'Acara'} — Sebagai: ${it.peran}
+            </option>
+          `).join('')}
+        </select>
+        <button class="btn btn-primary" onclick="downloadCert(document.getElementById('pub-sel-${gIdx}').value)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Unduh Sertifikat
+        </button>
+      ` : `
+        <div class="r-role" style="margin-bottom:4px;">Acara: <strong>${items[0].eventName || 'Kegiatan'}</strong></div>
+        <div class="r-status" style="margin-bottom:14px;">Status: Terdaftar sebagai ${items[0].peran}</div>
+        <button class="btn btn-primary" onclick="downloadCert('${items[0].id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Unduh Sertifikat
+        </button>
+      `}
+    </div>`;
+  }).join('');
 }
 
 function updatePublicStats() {
   const total = state.participants.length;
   const dl = state.downloads.length;
-  document.getElementById('pub-total').textContent = total;
-  document.getElementById('pub-downloads').textContent = dl;
-  const evEl = document.getElementById('pub-event');
-  if (evEl) {
-    evEl.textContent = state.settings.eventName || '—';
-    evEl.style.fontSize = '14px';
-  }
+  const pubTotal = document.getElementById('pub-total');
+  const pubDl = document.getElementById('pub-downloads');
+  if (pubTotal) pubTotal.textContent = total;
+  if (pubDl) pubDl.textContent = dl;
 }
 
 // ===== DOWNLOAD / GENERATE CERT =====
@@ -212,12 +431,21 @@ async function downloadCert(id) {
   const p = state.participants.find(x => x.id === id);
   if (!p) return;
 
+  const ev = state.events.find(e => e.id === p.eventId) || state.events[0] || {
+    name: p.eventName || 'Workshop',
+    date: '',
+    template_url: state.settings.certificateTemplate,
+    positions: state.settings.positions
+  };
+
   try {
     if (sb) {
       await sb.from("downloads").insert({
         participant_id: id,
         participant_name: p.nama,
         peran: p.peran,
+        event_id: ev.id,
+        event_name: ev.name,
         download_date: new Date().toISOString()
       });
 
@@ -228,18 +456,21 @@ async function downloadCert(id) {
     console.error("Gagal mencatat download:", err);
   }
 
-  await generatePDF(p);
+  await generatePDF(p, ev);
 }
 
-// GENERATE PDF RESOLUSI TINGGI (HD): Mempertahankan kualitas asli tanpa kompresi buram
-async function generatePDF(p) {
+// GENERATE PDF RESOLUSI TINGGI (HD): Mempertahankan kualitas asli template acara
+async function generatePDF(p, ev) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: false });
   const W = 297, H = 210;
-  const cfg = state.settings.positions;
+
+  const cfg = (ev && ev.positions) ? ev.positions : state.settings.positions;
+  const tpl = (ev && ev.template_url) ? ev.template_url : state.settings.certificateTemplate;
+  const eventName = (ev && ev.name) ? ev.name : state.settings.eventName;
+  const eventDate = (ev && ev.date) ? ev.date : state.settings.eventDate;
 
   // Render Background Template Gambar
-  const tpl = state.settings.certificateTemplate;
   if (tpl) {
     try {
       const img = await new Promise((resolve, reject) => {
@@ -285,10 +516,10 @@ async function generatePDF(p) {
   // Cetak Nama Event & Tanggal
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(cfg.event.size);
-  const dateStr = state.settings.eventDate ? new Date(state.settings.eventDate).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'}) : '';
-  doc.text(`${state.settings.eventName} | ${dateStr}`, cfg.event.x, cfg.event.y, { align: 'center', baseline: 'middle' });
+  const dateStr = eventDate ? new Date(eventDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  doc.text(`${eventName} | ${dateStr}`, cfg.event.x, cfg.event.y, { align: 'center', baseline: 'middle' });
 
-  doc.save(`Sertifikat_${p.nama.replace(/\s+/g, '_')}.pdf`);
+  doc.save(`Sertifikat_${p.nama.replace(/\s+/g, '_')}_${(eventName || 'Event').replace(/\s+/g, '_')}.pdf`);
 }
 
 // ===== TEMPLATE UPLOAD =====
@@ -302,7 +533,7 @@ function setEditorTemplate(src) {
     img.src = src;
     img.style.display = 'block';
     if (placeholder) placeholder.style.display = 'none';
-    if (label) label.textContent = 'Klik atau seret untuk mengganti template';
+    if (label) label.textContent = 'Klik atau seret untuk mengganti template acara ini';
   } else {
     img.removeAttribute('src');
     img.style.display = 'none';
@@ -312,6 +543,8 @@ function setEditorTemplate(src) {
 }
 
 async function processTemplateFile(file) {
+  const ev = getActiveEvent();
+  if (!ev) { alert('Pilih acara terlebih dahulu.'); return; }
   if (!file) return;
 
   const ext = file.name.split('.').pop().toLowerCase();
@@ -320,10 +553,10 @@ async function processTemplateFile(file) {
     return;
   }
 
-  showMsg('template-msg', 'success', 'Mengunggah template HD ke Supabase Storage (kualitas penuh)...');
+  showMsg('template-msg', 'success', `Mengunggah template HD untuk acara "${ev.name}" ke Supabase Storage...`);
 
   try {
-    const fileName = `template_${Date.now()}.${ext}`;
+    const fileName = `template_${ev.id.slice(0, 8)}_${Date.now()}.${ext}`;
     
     // Unggah file asli langsung ke Supabase Storage (Bebas limit 1 MB!)
     const { error: uploadError } = await sb.storage
@@ -338,37 +571,26 @@ async function processTemplateFile(file) {
       .getPublicUrl(fileName);
 
     const publicUrl = urlData.publicUrl;
-    setEditorTemplate(publicUrl);
-    state.settings.certificateTemplate = publicUrl;
 
-    // Simpan link URL ke tabel settings di database
+    // Simpan link URL ke tabel events untuk acara yang sedang aktif
     const { error: updateError } = await sb
-      .from('settings')
-      .update({ certificate_template: publicUrl })
-      .eq('id', 'main');
+      .from('events')
+      .update({ template_url: publicUrl })
+      .eq('id', ev.id);
 
     if (updateError) throw updateError;
 
-    showMsg('template-msg', 'success', 'Template HD berhasil disimpan tanpa kompresi!');
+    ev.template_url = publicUrl;
+    setEditorTemplate(publicUrl);
+    state.settings.certificateTemplate = publicUrl;
+
+    showMsg('template-msg', 'success', `Template HD untuk "${ev.name}" berhasil disimpan tanpa kompresi!`);
     requestAnimationFrame(() => applyPositions());
+    renderDashboard();
   } catch (err) {
     console.error('Gagal mengunggah template:', err);
     showMsg('template-msg', 'error', 'Gagal memproses template: ' + (err.message || err));
   }
-}
-
-function getImageDimensions(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => { resolve({ width: img.width, height: img.height }); };
-      img.onerror = () => resolve(null);
-      img.src = e.target.result;
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
 }
 
 async function handleTemplate(input) {
@@ -377,6 +599,7 @@ async function handleTemplate(input) {
   input.value = '';
 }
 
+// ===== EDITOR DRAG & DROP POSISI =====
 let editorDragActive = false;
 let dragRafId = 0;
 let pendingDrag = null;
@@ -543,9 +766,9 @@ function initCertEditorDrag() {
 }
 
 function updateEditorStyle() {
-  const nameSize = document.getElementById('cfg-name-size').value;
-  const roleSize = document.getElementById('cfg-role-size').value;
-  const color = document.getElementById('cfg-color').value;
+  const nameSize = document.getElementById('cfg-name-size')?.value || 32;
+  const roleSize = document.getElementById('cfg-role-size')?.value || 18;
+  const color = document.getElementById('cfg-color')?.value || '#30338A';
   
   const n = document.getElementById('drag-name');
   const r = document.getElementById('drag-role');
@@ -557,24 +780,29 @@ function updateEditorStyle() {
 }
 
 async function savePositions() {
+  const ev = getActiveEvent();
+  if (!ev) { alert('Pilih acara terlebih dahulu.'); return; }
+
   const container = document.getElementById('canvas-container');
   if (!container) return;
   const rect = container.getBoundingClientRect();
   if (!rect.width || !rect.height) {
-    alert('Kanvas belum siap. Buka tab Upload Template lalu coba lagi.');
+    alert('Kanvas belum siap. Buka tab Acara & Template lalu coba lagi.');
     return;
   }
 
   const newPositions = getEditorPositions();
 
   try {
-    state.settings.positions = newPositions;
-    const { error } = await sb.from("settings").update({
+    const { error } = await sb.from("events").update({
       positions: newPositions
-    }).eq('id', 'main');
+    }).eq('id', ev.id);
 
     if (error) throw error;
     
+    ev.positions = newPositions;
+    state.settings.positions = newPositions;
+
     const msg = document.getElementById('pos-msg');
     if (msg) {
       msg.style.display = 'block';
@@ -643,13 +871,22 @@ function renderPreview() {
 async function importData() {
   const valid = state.previewData.filter(r => r.valid);
   if (valid.length === 0) { showMsg('upload-msg', 'error', 'Tidak ada data valid.'); return; }
-  
-  showMsg('upload-msg', 'success', `Sedang mengimport ${valid.length} data...`);
-  
+
+  const targetEventId = document.getElementById('upload-event-select')?.value;
+  const targetEvent = state.events.find(e => e.id === targetEventId) || getActiveEvent();
+  if (!targetEvent) {
+    showMsg('upload-msg', 'error', 'Pilih acara target terlebih dahulu.');
+    return;
+  }
+
+  showMsg('upload-msg', 'success', `Sedang mengimport ${valid.length} data ke acara "${targetEvent.name}"...`);
+
   try {
     const rows = valid.map(r => ({
       nama: r.nama,
       peran: r.peran,
+      event_id: targetEvent.id,
+      event_name: targetEvent.name,
       download_count: 0
     }));
 
@@ -659,9 +896,9 @@ async function importData() {
       const { error } = await sb.from("participants").insert(chunk);
       if (error) throw error;
     }
-    
+
     await loadParticipants();
-    showMsg('upload-msg', 'success', `Berhasil mengimport ${valid.length} peserta!`);
+    showMsg('upload-msg', 'success', `Berhasil mengimport ${valid.length} peserta ke acara "${targetEvent.name}"!`);
     document.getElementById('preview-table').style.display = 'none';
     state.previewData = [];
   } catch (err) {
@@ -670,45 +907,71 @@ async function importData() {
   }
 }
 
-// ===== SETTINGS =====
+// ===== SETTINGS ACARA =====
 async function saveSettings() {
-  const eventName = document.getElementById('event-name').value;
+  const ev = getActiveEvent();
+  if (!ev) { alert('Pilih acara terlebih dahulu.'); return; }
+
+  const eventName = document.getElementById('event-name').value.trim();
   const eventDate = document.getElementById('event-date').value;
-  
+
+  if (!eventName) {
+    alert('Nama kegiatan tidak boleh kosong.');
+    return;
+  }
+
   try {
-    const { error } = await sb.from("settings").update({
-      event_name: eventName,
-      event_date: eventDate,
-      positions: state.settings.positions,
-      certificate_template: state.settings.certificateTemplate
-    }).eq('id', 'main');
+    const { error } = await sb.from("events").update({
+      name: eventName,
+      date: eventDate
+    }).eq('id', ev.id);
 
     if (error) throw error;
+
+    ev.name = eventName;
+    ev.date = eventDate;
+    state.settings.eventName = eventName;
+    state.settings.eventDate = eventDate;
+
+    renderEventDropdowns();
+    const sel = document.getElementById('event-select');
+    if (sel) sel.value = ev.id;
 
     const msg = document.getElementById('settings-msg');
     if (msg) {
       msg.style.display = 'block';
       setTimeout(() => msg.style.display = 'none', 2500);
     }
+    updatePublicStats();
+    renderDashboard();
   } catch (err) {
     console.error(err);
-    alert("Gagal menyimpan pengaturan: " + (err.message || err));
+    alert("Gagal menyimpan pengaturan acara: " + (err.message || err));
   }
 }
 
 // ===== PESERTA TABLE =====
 function renderPesertaTable() {
   const q = (document.getElementById('admin-search')?.value || '').toLowerCase();
-  const list = state.participants.filter(p => !q || p.nama.toLowerCase().includes(q));
+  const filterEvent = document.getElementById('filter-event-select')?.value || '';
+
+  const list = state.participants.filter(p => {
+    const matchesQ = !q || p.nama.toLowerCase().includes(q) || (p.eventName && p.eventName.toLowerCase().includes(q));
+    const matchesEvent = !filterEvent || p.eventId === filterEvent;
+    return matchesQ && matchesEvent;
+  });
+
   const tbody = document.getElementById('peserta-tbody');
   const empty = document.getElementById('empty-peserta');
   if (list.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
+
   tbody.innerHTML = list.map((p, i) => `
 <tr>
   <td style="color:var(--text3)">${i + 1}</td>
   <td><strong>${p.nama}</strong></td>
   <td><span class="badge badge-gray">${p.peran}</span></td>
+  <td><span class="badge badge-green" style="font-size:12px;">${p.eventName || 'Acara'}</span></td>
   <td>${p.downloadCount || 0}</td>
   <td>
     <div style="display:flex;gap:6px">
@@ -719,12 +982,18 @@ function renderPesertaTable() {
 </tr>`).join('');
 }
 
-// ===== MODAL =====
+// ===== MODAL PESERTA =====
 function showAddModal() {
   document.getElementById('modal-peserta-title').textContent = 'Tambah Peserta';
   document.getElementById('modal-edit-id').value = '';
   document.getElementById('modal-nama').value = '';
   document.getElementById('modal-peran').value = '';
+
+  const modalSelect = document.getElementById('modal-event-select');
+  if (modalSelect && state.activeEventId) {
+    modalSelect.value = state.activeEventId;
+  }
+
   document.getElementById('modal-error').style.display = 'none';
   document.getElementById('modal-peserta').style.display = 'flex';
 }
@@ -736,6 +1005,12 @@ function editPeserta(id) {
   document.getElementById('modal-edit-id').value = id;
   document.getElementById('modal-nama').value = p.nama;
   document.getElementById('modal-peran').value = p.peran;
+
+  const modalSelect = document.getElementById('modal-event-select');
+  if (modalSelect && p.eventId) {
+    modalSelect.value = p.eventId;
+  }
+
   document.getElementById('modal-error').style.display = 'none';
   document.getElementById('modal-peserta').style.display = 'flex';
 }
@@ -744,18 +1019,29 @@ async function savePeserta() {
   const id = document.getElementById('modal-edit-id').value;
   const nama = document.getElementById('modal-nama').value.trim();
   const peran = document.getElementById('modal-peran').value.trim();
+  const eventId = document.getElementById('modal-event-select').value;
+  const ev = state.events.find(e => e.id === eventId) || getActiveEvent();
   const err = document.getElementById('modal-error');
+
   if (!nama) { err.textContent = 'Nama tidak boleh kosong.'; err.style.display = 'block'; return; }
   if (!peran) { err.textContent = 'Peran tidak boleh kosong.'; err.style.display = 'block'; return; }
-  
+  if (!ev) { err.textContent = 'Pilih acara terlebih dahulu.'; err.style.display = 'block'; return; }
+
   try {
     if (id) {
-      const { error } = await sb.from("participants").update({ nama, peran }).eq('id', id);
+      const { error } = await sb.from("participants").update({
+        nama,
+        peran,
+        event_id: ev.id,
+        event_name: ev.name
+      }).eq('id', id);
       if (error) throw error;
     } else {
       const { error } = await sb.from("participants").insert({
         nama,
         peran,
+        event_id: ev.id,
+        event_name: ev.name,
         download_count: 0
       });
       if (error) throw error;
@@ -773,7 +1059,7 @@ function deletePeserta(id) {
   const p = state.participants.find(x => x.id === id);
   if (!p) return;
   state.deleteId = id;
-  document.getElementById('delete-name').textContent = p.nama;
+  document.getElementById('delete-name').textContent = p.nama + ` (${p.eventName})`;
   document.getElementById('modal-delete').style.display = 'flex';
 }
 
@@ -793,24 +1079,40 @@ async function confirmDelete() {
 }
 
 function closeModal() {
-  document.getElementById('modal-peserta').style.display = 'none';
-  document.getElementById('modal-delete').style.display = 'none';
+  const modalPeserta = document.getElementById('modal-peserta');
+  const modalDelete = document.getElementById('modal-delete');
+  const modalAddEvent = document.getElementById('modal-add-event');
+  if (modalPeserta) modalPeserta.style.display = 'none';
+  if (modalDelete) modalDelete.style.display = 'none';
+  if (modalAddEvent) modalAddEvent.style.display = 'none';
 }
 
 // ===== DASHBOARD =====
 function renderDashboard() {
-  document.getElementById('d-total').textContent = state.participants.length;
-  document.getElementById('d-downloads').textContent = state.downloads.length;
-  document.getElementById('d-event').textContent = state.settings.eventName || 'Belum diatur';
-  document.getElementById('d-template').textContent = state.settings.certificateTemplate ? 'Aktif' : 'Belum ada';
+  const dTotal = document.getElementById('d-total');
+  const dDl = document.getElementById('d-downloads');
+  const dEv = document.getElementById('d-event');
+  const dTemplate = document.getElementById('d-template');
+
+  const active = getActiveEvent();
+
+  if (dTotal) dTotal.textContent = state.participants.length;
+  if (dDl) dDl.textContent = state.downloads.length;
+  if (dEv) dEv.textContent = active ? active.name : 'Belum diatur';
+  if (dTemplate) dTemplate.textContent = (active && active.template_url) ? 'Aktif' : 'Belum ada';
+
   const recent = [...state.downloads].sort((a, b) => b.downloadDate - a.downloadDate).slice(0, 5);
   const tbody = document.getElementById('recent-downloads');
-  if (recent.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:13px">Belum ada download.</td></tr>';
-  } else {
-    tbody.innerHTML = recent.map(d => `
-  <tr><td><strong>${d.participantName}</strong></td>
-  <td style="color:var(--text2)">${fmtDate(d.downloadDate)}</td></tr>`).join('');
+  if (tbody) {
+    if (recent.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--text3);font-size:13px">Belum ada download.</td></tr>';
+    } else {
+      tbody.innerHTML = recent.map(d => `
+    <tr>
+      <td><strong>${d.participantName}</strong> ${d.eventName ? `<span style="font-size:12px;color:var(--text2)">(${d.eventName})</span>` : ''}</td>
+      <td style="color:var(--text2)">${fmtDate(d.downloadDate)}</td>
+    </tr>`).join('');
+    }
   }
 }
 
@@ -819,19 +1121,32 @@ function renderStat() {
   const total = state.participants.length;
   const dl = state.downloads.length;
   const pct = total > 0 ? Math.round(state.downloads.filter((d, i, a) => a.findIndex(x => x.participantId === d.participantId) === i).length / total * 100) : 0;
-  document.getElementById('s-total').textContent = total;
-  document.getElementById('s-downloads').textContent = dl;
-  document.getElementById('s-pct').textContent = pct + '%';
+  
+  const sTotal = document.getElementById('s-total');
+  const sDl = document.getElementById('s-downloads');
+  const sPct = document.getElementById('s-pct');
+  if (sTotal) sTotal.textContent = total;
+  if (sDl) sDl.textContent = dl;
+  if (sPct) sPct.textContent = pct + '%';
+
   const sorted = [...state.downloads].sort((a, b) => b.downloadDate - a.downloadDate);
   const tbody = document.getElementById('stat-tbody');
   const empty = document.getElementById('empty-stat');
-  if (sorted.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
+  if (!tbody) return;
+
+  if (sorted.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
   tbody.innerHTML = sorted.map((d, i) => `
 <tr>
   <td style="color:var(--text3)">${i + 1}</td>
   <td><strong>${d.participantName}</strong></td>
   <td><span class="badge badge-gray">${d.peran}</span></td>
+  <td><span class="badge badge-green" style="font-size:12px;">${d.eventName || 'Acara'}</span></td>
   <td style="color:var(--text2)">${fmtDate(d.downloadDate)}</td>
 </tr>`).join('');
 }
@@ -861,6 +1176,7 @@ function fmtDate(d) {
 
 function showMsg(id, type, txt) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.className = 'alert ' + (type === 'error' ? 'alert-error' : 'alert-success');
   el.textContent = txt;
   el.style.display = 'block';
