@@ -34,7 +34,7 @@ function showPage(p) {
     if (window.location.hash) {
       try {
         history.replaceState(null, '', window.location.pathname + window.location.search);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -105,9 +105,16 @@ function onSwitchEvent(eventId) {
     color: '#1E255E'
   };
 
+  const dragEventEl = document.getElementById('drag-event');
+  if (dragEventEl) {
+    const dStr = ev.date ? new Date(ev.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    dragEventEl.textContent = `${ev.name || 'Nama Kegiatan'}${dStr ? ' | ' + dStr : ''}`;
+  }
+
   setEditorTemplate(ev.template_url);
   applyPositions();
   renderEventPills();
+  renderEventParticipantDownloadSelect();
   renderDashboard();
 }
 
@@ -125,6 +132,50 @@ function renderEventPills() {
       </button>
     `;
   }).join('');
+}
+
+function renderEventParticipantDownloadSelect() {
+  const sel = document.getElementById('event-participant-download-select');
+  if (!sel) return;
+  const active = getActiveEvent();
+  if (!active) {
+    sel.innerHTML = '<option value="">-- Pilih Peserta --</option>';
+    return;
+  }
+  const eventParticipants = state.participants.filter(p => p.eventId === active.id);
+  if (eventParticipants.length === 0) {
+    sel.innerHTML = '<option value="">(Belum ada peserta terdaftar di acara ini)</option>';
+  } else {
+    sel.innerHTML = '<option value="">-- Pilih Peserta (' + eventParticipants.length + ' Peserta) --</option>' +
+      eventParticipants.map(p => `
+        <option value="${p.id}">
+          ${escapeHtml(p.nama)} (${escapeHtml(p.peran || 'Peserta')})
+        </option>
+      `).join('');
+  }
+}
+
+async function downloadSelectedEventParticipantCert() {
+  const sel = document.getElementById('event-participant-download-select');
+  const participantId = sel ? sel.value : '';
+  if (!participantId) {
+    alert('Silakan pilih salah satu peserta dari dropdown terlebih dahulu.');
+    return;
+  }
+  await downloadCert(participantId);
+}
+
+async function previewEventDummy(eventId) {
+  const ev = state.events.find(e => e.id === eventId) || getActiveEvent();
+  if (!ev) return;
+  const dummy = {
+    id: 'dummy',
+    nama: 'ACHMAD FAUZI NUGRAHA',
+    peran: 'Peserta',
+    eventName: ev.name,
+    eventId: ev.id
+  };
+  await generatePDF(dummy, ev);
 }
 
 function renderEventDropdowns() {
@@ -184,6 +235,7 @@ function renderEventDropdowns() {
   }
 
   renderEventPills();
+  renderEventParticipantDownloadSelect();
 }
 
 function showAddEventModal() {
@@ -380,17 +432,22 @@ async function loadParticipants() {
     const { data, error } = await sb.from('participants').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     state.participants = (data || []).map(r => {
-      const ev = state.events.find(e => e.id === r.event_id);
+      let ev = state.events.find(e => e.id === r.event_id);
+      if (!ev && state.events.length > 0) {
+        ev = state.events[0];
+      }
       return {
         id: r.id,
         nama: r.nama,
         peran: r.peran,
-        eventId: r.event_id,
+        eventId: r.event_id || (ev ? ev.id : null),
         eventName: r.event_name || (ev ? ev.name : 'Acara'),
         downloadCount: r.download_count || 0,
         createdAt: r.created_at
       };
     });
+    renderEventPills();
+    renderEventParticipantDownloadSelect();
     if (document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active')) {
       renderDashboard();
       renderPesertaTable();
@@ -511,7 +568,7 @@ function doLogout() {
   sessionStorage.removeItem('certifynow_auth_time');
   try {
     history.replaceState(null, '', window.location.pathname);
-  } catch (e) {}
+  } catch (e) { }
   showPage('public');
 }
 
@@ -625,43 +682,43 @@ function doSearch() {
     return;
   }
 
-// Helper: Format badge peran agar lebih profesional dan tidak mentah
-function formatRoleBadge(role) {
-  if (!role) return { label: 'Peserta Resmi', type: 'peserta' };
-  const r = String(role).trim();
-  const rLower = r.toLowerCase();
-  if (rLower === 'peserta') return { label: 'Peserta Resmi', type: 'peserta' };
-  if (rLower === 'panitia') return { label: 'Panitia Pelaksana', type: 'panitia' };
-  if (rLower === 'narasumber' || rLower === 'speaker') return { label: 'Narasumber', type: 'narasumber' };
-  if (rLower === 'moderator') return { label: 'Moderator Acara', type: 'moderator' };
-  if (rLower.startsWith('sie ') || rLower.startsWith('divisi ')) {
-    return { label: `Panitia · ${r}`, type: 'panitia' };
+  // Helper: Format badge peran agar lebih profesional dan tidak mentah
+  function formatRoleBadge(role) {
+    if (!role) return { label: 'Peserta Resmi', type: 'peserta' };
+    const r = String(role).trim();
+    const rLower = r.toLowerCase();
+    if (rLower === 'peserta') return { label: 'Peserta Resmi', type: 'peserta' };
+    if (rLower === 'panitia') return { label: 'Panitia Pelaksana', type: 'panitia' };
+    if (rLower === 'narasumber' || rLower === 'speaker') return { label: 'Narasumber', type: 'narasumber' };
+    if (rLower === 'moderator') return { label: 'Moderator Acara', type: 'moderator' };
+    if (rLower.startsWith('sie ') || rLower.startsWith('divisi ')) {
+      return { label: `Panitia · ${r}`, type: 'panitia' };
+    }
+    if (r.length <= 15 && !rLower.includes('peserta')) {
+      return { label: `Panitia · Sie ${r.toUpperCase()}`, type: 'panitia' };
+    }
+    return { label: r, type: 'custom' };
   }
-  if (r.length <= 15 && !rLower.includes('peserta')) {
-    return { label: `Panitia · Sie ${r.toUpperCase()}`, type: 'panitia' };
-  }
-  return { label: r, type: 'custom' };
-}
 
-// Helper: Nama kegiatan yang informatif dan tidak jatuh ke fallback mentah
-function getResolvedEventName(item) {
-  if (item && item.eventName && item.eventName !== 'Acara') return item.eventName;
-  if (item && item.eventId) {
-    const ev = state.events.find(e => e.id === item.eventId);
-    if (ev && ev.name) return ev.name;
+  // Helper: Nama kegiatan yang informatif dan tidak jatuh ke fallback mentah
+  function getResolvedEventName(item) {
+    if (item && item.eventName && item.eventName !== 'Acara') return item.eventName;
+    if (item && item.eventId) {
+      const ev = state.events.find(e => e.id === item.eventId);
+      if (ev && ev.name) return ev.name;
+    }
+    if (state.activeEventId) {
+      const ev = state.events.find(e => e.id === state.activeEventId);
+      if (ev && ev.name) return ev.name;
+    }
+    if (state.events && state.events.length > 0 && state.events[0].name) {
+      return state.events[0].name;
+    }
+    if (state.settings && state.settings.eventName) {
+      return state.settings.eventName;
+    }
+    return 'Kegiatan Resmi HIMASI UBSI';
   }
-  if (state.activeEventId) {
-    const ev = state.events.find(e => e.id === state.activeEventId);
-    if (ev && ev.name) return ev.name;
-  }
-  if (state.events && state.events.length > 0 && state.events[0].name) {
-    return state.events[0].name;
-  }
-  if (state.settings && state.settings.eventName) {
-    return state.settings.eventName;
-  }
-  return 'Kegiatan Resmi HIMASI UBSI';
-}
 
   // Kelompokkan hasil pencarian berdasarkan nama yang sama
   const groups = {};
@@ -676,58 +733,44 @@ function getResolvedEventName(item) {
     const firstItem = items[0];
     const initialEventName = getResolvedEventName(firstItem);
     const initialRole = formatRoleBadge(firstItem.peran);
-    const rawId = firstItem.id || String(Math.abs(name.split('').reduce((a,c)=>((a<<5)-a)+c.charCodeAt(0)|0, 0)));
+    const rawId = firstItem.id || String(Math.abs(name.split('').reduce((a, c) => ((a << 5) - a) + c.charCodeAt(0) | 0, 0)));
     const cleanId = rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'HM26';
 
     return `
     <div class="pub-result-card">
-      <!-- Card Top Credential Header -->
       <div class="credential-header">
-        <div class="credential-org-wrap">
-          <div class="credential-shield-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <polyline points="9 12 11 14 15 10"/>
-            </svg>
-          </div>
-          <div>
-            <div class="credential-org-title">HIMASI UBSI Karawang</div>
-            <div class="credential-org-sub">E-Sertifikat Terverifikasi Resmi</div>
-          </div>
-        </div>
-        <div class="credential-id-badge">
-          <span>CN-${cleanId}</span>
-        </div>
+        <span class="credential-verified">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+          Terverifikasi
+        </span>
+        <span class="credential-id-badge">CN-${cleanId}</span>
       </div>
 
       <!-- Recipient Presentation -->
       <div class="credential-recipient-box">
-        <div class="credential-overline">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;color:var(--accent-gold)">
-            <circle cx="12" cy="8" r="7"/>
-            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
-          </svg>
-          Dokumen Diterbitkan Kepada
-        </div>
+        <div class="credential-overline">Diterbitkan kepada</div>
         <h3 class="credential-name">${escapeHtml(name)}</h3>
       </div>
 
       ${isMulti ? `
         <div class="multi-event-wrapper">
           <label class="multi-event-label">
-            Pilih Sertifikat Kegiatan yang Ingin Diunduh:
+            Pilih kegiatan
           </label>
           <div class="select-wrap">
             <select class="input res-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
               ${items.map((it, idx) => {
-                const evN = getResolvedEventName(it);
-                const rB = formatRoleBadge(it.peran);
-                return `
+      const evN = getResolvedEventName(it);
+      const rB = formatRoleBadge(it.peran);
+      return `
                 <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(evN)}" ${idx === 0 ? 'selected' : ''}>
                   ${escapeHtml(evN)} · Sebagai ${escapeHtml(rB.label)}
                 </option>
                 `;
-              }).join('')}
+    }).join('')}
             </select>
           </div>
         </div>
@@ -736,51 +779,17 @@ function getResolvedEventName(item) {
       <!-- Credential Details Grid -->
       <div class="credential-details-grid">
         <div class="detail-item-card">
-          <div class="detail-icon-circle event-type">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-              <polyline points="10 6 14 10 10 14"/>
-            </svg>
-          </div>
-          <div class="detail-content-wrap">
-            <div class="detail-item-lbl">Nama Kegiatan / Acara</div>
-            <div class="detail-item-val" id="pub-meta-event-${gIdx}">${escapeHtml(initialEventName)}</div>
-          </div>
+          <div class="detail-item-lbl">Kegiatan</div>
+          <div class="detail-item-val" id="pub-meta-event-${gIdx}">${escapeHtml(initialEventName)}</div>
         </div>
 
         <div class="detail-item-card">
-          <div class="detail-icon-circle role-type">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="7" r="4"/>
-              <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
-            </svg>
+          <div class="detail-item-lbl">Peran</div>
+          <div class="detail-item-val">
+            <span class="role-badge role-${initialRole.type}" id="pub-meta-role-${gIdx}">
+              ${escapeHtml(initialRole.label)}
+            </span>
           </div>
-          <div class="detail-content-wrap">
-            <div class="detail-item-lbl">Status &amp; Peran</div>
-            <div class="detail-item-val">
-              <span class="role-badge role-${initialRole.type}" id="pub-meta-role-${gIdx}">
-                ${escapeHtml(initialRole.label)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Specs Bar -->
-      <div class="credential-specs-bar">
-        <div class="spec-badge-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-          <span>Format: Dokumen PDF HD (Landscape A4 · 300 DPI)</span>
-        </div>
-        <div class="spec-badge-item" style="color:var(--success)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--success)">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          <span>Siap Cetak &amp; Sah</span>
         </div>
       </div>
 
@@ -792,10 +801,8 @@ function getResolvedEventName(item) {
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          <div class="btn-texts">
-            <span class="btn-title-main">Unduh E-Sertifikat Resmi</span>
-            <span class="btn-title-sub">Klik untuk memproses dan mengunduh berkas PDF</span>
-          </div>
+          <span>Unduh E-Sertifikat</span>
+          <span class="btn-cert-badge">PDF HD</span>
         </button>
       </div>
 
@@ -805,10 +812,16 @@ function getResolvedEventName(item) {
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
-        <span>Diverifikasi secara digital oleh Himpunan Mahasiswa Sistem Informasi UBSI Karawang</span>
+        <span>Diverifikasi oleh HIMASI UBSI Karawang</span>
       </div>
     </div>`;
   }).join('');
+
+  // Geser halus supaya kartu hasil langsung terlihat, tanpa mengubah tampilan hero
+  requestAnimationFrame(() => {
+    const first = area.firstElementChild;
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 }
 
 function onSelectPubEvent(gIdx) {
@@ -893,22 +906,22 @@ async function generatePDF(p, ev) {
 
       const isPng = tpl.toLowerCase().includes('.png') || tpl.startsWith('data:image/png');
       const format = isPng ? 'PNG' : 'JPEG';
-      
+
       // Render resolusi penuh tanpa flag 'FAST' agar garis dan font sangat tajam (anti-aliasing)
       doc.addImage(img, format, 0, 0, W, H, undefined, 'SLOW');
-    } catch (e) { 
-      console.error("Gagal memuat latar gambar:", e); 
+    } catch (e) {
+      console.error("Gagal memuat latar gambar:", e);
       doc.setFillColor(250, 238, 218);
       doc.rect(0, 0, W, H, 'F');
       doc.setDrawColor(186, 117, 23); doc.setLineWidth(1.5);
-      doc.rect(10, 10, W-20, H-20, 'S');
+      doc.rect(10, 10, W - 20, H - 20, 'S');
     }
   } else {
     // Fallback jika tidak ada gambar template
     doc.setFillColor(250, 238, 218);
     doc.rect(0, 0, W, H, 'F');
     doc.setDrawColor(186, 117, 23); doc.setLineWidth(1.5);
-    doc.rect(10, 10, W-20, H-20, 'S');
+    doc.rect(10, 10, W - 20, H - 20, 'S');
   }
 
   doc.setTextColor(cfg.color || '#1C1C1A');
@@ -967,7 +980,7 @@ async function processTemplateFile(file) {
 
   try {
     const fileName = `template_${ev.id.slice(0, 8)}_${Date.now()}.${ext}`;
-    
+
     // Unggah file asli langsung ke Supabase Storage (Bebas limit 1 MB!)
     const { error: uploadError } = await sb.storage
       .from('certificates')
@@ -1127,7 +1140,7 @@ function initCertEditorDrag() {
     pendingDrag = null;
 
     if (e?.pointerId != null) {
-      try { if (activeEl.hasPointerCapture(e.pointerId)) activeEl.releasePointerCapture(e.pointerId); } catch (_) {}
+      try { if (activeEl.hasPointerCapture(e.pointerId)) activeEl.releasePointerCapture(e.pointerId); } catch (_) { }
     }
 
     activeEl.classList.remove('is-dragging');
@@ -1170,7 +1183,7 @@ function initCertEditorDrag() {
     document.addEventListener('pointerup', onDocEnd);
     document.addEventListener('pointercancel', onDocEnd);
 
-    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    try { el.setPointerCapture(e.pointerId); } catch (_) { }
   });
 
   container.querySelectorAll('.draggable').forEach((el) => {
@@ -1183,11 +1196,11 @@ function updateEditorStyle() {
   const roleSize = document.getElementById('cfg-role-size')?.value || 18;
   const eventSize = document.getElementById('cfg-event-size')?.value || 12;
   const color = document.getElementById('cfg-color')?.value || '#1E255E';
-  
+
   const n = document.getElementById('drag-name');
   const r = document.getElementById('drag-role');
   const e = document.getElementById('drag-event');
-  
+
   if (n) { n.style.fontSize = nameSize + 'px'; n.style.color = color; }
   if (r) { r.style.fontSize = roleSize + 'px'; }
   if (e) { e.style.fontSize = eventSize + 'px'; e.style.color = color; }
@@ -1213,7 +1226,7 @@ async function savePositions() {
     }).eq('id', ev.id);
 
     if (error) throw error;
-    
+
     ev.positions = newPositions;
     state.settings.positions = newPositions;
 
@@ -1693,17 +1706,20 @@ function renderDashboardEventList() {
           📅 ${dateStr} &bull; <strong>${count}</strong> Peserta
         </div>
         <div style="margin-bottom:12px;">
-          ${hasTpl 
-            ? '<span class="badge badge-green" style="font-size:11px;">✓ Template HD Siap</span>' 
-            : '<span class="badge" style="font-size:11px;background:var(--accent-gold-light);color:var(--accent-gold);border:1px solid var(--accent-gold-border);">⚠️ Belum Ada Template</span>'
-          }
+          ${hasTpl
+        ? '<span class="badge badge-green" style="font-size:11px;">✓ Template HD Siap</span>'
+        : '<span class="badge" style="font-size:11px;background:var(--accent-gold-light);color:var(--accent-gold);border:1px solid var(--accent-gold-border);">⚠️ Belum Ada Template</span>'
+      }
         </div>
         <div class="event-ov-footer" style="gap:6px; flex-wrap:wrap;">
-          <button class="btn btn-outline btn-sm" style="flex:1; font-size:11.5px; padding:6px 8px;" onclick="onSwitchEvent('${e.id}'); showTab('template', document.querySelector('[data-tab=\\'template\\']'))">
+          <button class="btn btn-primary btn-sm" style="flex:1; font-size:11.5px; padding:6px 8px;" onclick="onSwitchEvent('${e.id}'); showTab('template', document.querySelector('[data-tab=\\'template\\']'))">
             Atur Template
           </button>
+          <button class="btn btn-outline btn-sm" style="flex:1; font-size:11.5px; padding:6px 8px;" onclick="previewEventDummy('${e.id}')" title="Uji Cetak Contoh PDF">
+            Uji Cetak
+          </button>
           <button class="btn btn-outline btn-sm" style="flex:1; font-size:11.5px; padding:6px 8px;" onclick="onSwitchEvent('${e.id}'); showTab('upload-peserta', document.querySelector('[data-tab=\\'upload-peserta\\']'))">
-            Import Peserta
+            Import
           </button>
           <button class="btn btn-sm" style="background:var(--danger-light);color:var(--danger);border:none;padding:6px 10px;" title="Hapus Acara" onclick="deleteEventById('${e.id}')">
             &times;
@@ -1756,7 +1772,7 @@ function renderStat() {
   const dl = state.downloads.length;
   const uniqueDl = state.downloads.filter((d, i, a) => a.findIndex(x => x.participantId === d.participantId) === i).length;
   const pct = total > 0 ? Math.round(uniqueDl / total * 100) : 0;
-  
+
   const sTotal = document.getElementById('s-total');
   const sDl = document.getElementById('s-downloads');
   const sPct = document.getElementById('s-pct');
@@ -1866,7 +1882,7 @@ function checkRoute() {
     if (!state.loggedIn) {
       try {
         history.replaceState(null, '', window.location.pathname + window.location.search);
-      } catch (e) {}
+      } catch (e) { }
       showPage('public');
       return;
     }
@@ -1923,3 +1939,5 @@ window.clearDownloads = clearDownloads;
 window.updateEditorStyle = updateEditorStyle;
 window.toggleMobileMenu = toggleMobileMenu;
 window.handleLogoSecretClick = handleLogoSecretClick;
+window.downloadSelectedEventParticipantCert = downloadSelectedEventParticipantCert;
+window.previewEventDummy = previewEventDummy;

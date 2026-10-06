@@ -22,7 +22,7 @@
     rel="stylesheet">
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="style.css?v=3.0">
+  <link rel="stylesheet" href="style.css?v=3.6">
 </head>
 
 <body>
@@ -34,14 +34,14 @@
     <!-- Navbar Start -->
     <nav class="pub-nav">
       <div class="pub-nav-container">
-        <a class="pub-brand" href="javascript:void(0)" onclick="handleLogoSecretClick()" title="HIMASI UBSI Karawang">
-          <img src="assets/LogoHima.svg" alt="Logo HIMASI UBSI Karawang" class="pub-logo-img">
+        <div class="pub-brand">
+          <img src="assets/LogoHima.svg" alt="Logo HIMASI UBSI Karawang" class="pub-logo-img pub-logo-secret"
+            onclick="handleLogoSecretClick()" draggable="false">
           <div class="pub-brand-text">
             <span class="pub-brand-title">HIMASI UBSI Karawang</span>
             <span class="pub-brand-sub">Himpunan Mahasiswa Sistem Informasi</span>
           </div>
-          <span class="pub-pill-tag">Portal E-Sertifikat</span>
-        </a>
+        </div>
 
         <!-- Desktop Nav Links & Actions -->
         <div class="pub-nav-right">
@@ -118,8 +118,10 @@
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input type="text" id="pub-search" placeholder="Ketik nama lengkap peserta..." maxlength="60" spellcheck="false"
-            onkeydown="if(event.key==='Enter')doSearch()" oninput="if(!this.value.trim()){document.getElementById('result-area').innerHTML='';const h=document.getElementById('hero-search');if(h)h.classList.remove('search-active');}" autocomplete="off">
+          <input type="text" id="pub-search" placeholder="Ketik nama lengkap peserta..." maxlength="60"
+            spellcheck="false" onkeydown="if(event.key==='Enter')doSearch()"
+            oninput="if(!this.value.trim()){document.getElementById('result-area').innerHTML='';const h=document.getElementById('hero-search');if(h)h.classList.remove('search-active');}"
+            autocomplete="off">
         </div>
         <button class="search-btn" onclick="doSearch()">Cari Sertifikat</button>
       </div>
@@ -145,21 +147,24 @@
             <div class="step-number">1</div>
             <div class="step-card-content">
               <h3>Ketik Nama Lengkap</h3>
-              <p>Masukkan nama lengkap sesuai identitas yang Anda gunakan saat mendaftar kegiatan atau kepanitiaan HIMASI.</p>
+              <p>Masukkan nama lengkap sesuai identitas yang Anda gunakan saat mendaftar kegiatan atau kepanitiaan
+                HIMASI.</p>
             </div>
           </div>
           <div class="step-card">
             <div class="step-number">2</div>
             <div class="step-card-content">
               <h3>Pilih Sertifikat Acara</h3>
-              <p>Jika Anda mengikuti beberapa kegiatan, pilih sertifikat yang diinginkan melalui pemilih kegiatan yang tersedia.</p>
+              <p>Jika Anda mengikuti beberapa kegiatan, pilih sertifikat yang diinginkan melalui pemilih kegiatan yang
+                tersedia.</p>
             </div>
           </div>
           <div class="step-card">
             <div class="step-number">3</div>
             <div class="step-card-content">
               <h3>Unduh Dokumen PDF HD</h3>
-              <p>Klik tombol unduh untuk mengunduh dokumen PDF sertifikat beresolusi tinggi yang siap dicetak maupun disimpan.</p>
+              <p>Klik tombol unduh untuk mengunduh dokumen PDF sertifikat beresolusi tinggi yang siap dicetak maupun
+                disimpan.</p>
             </div>
           </div>
         </div>
@@ -198,7 +203,7 @@
             </p>
             <div style="display:flex; gap:12px; margin-top:8px;">
               <span style="font-size:12.5px; color:rgba(255,255,255,0.8); font-weight:600;">Instagram:
-                @himasi.ubsikarawang</span>
+                @himasiubsikarawang</span>
             </div>
           </div>
         </div>
@@ -656,6 +661,37 @@
                   Coba Cetak PDF Dummy
                 </button>
               </div>
+
+              <!-- Unduh / Uji Sertifikat Acara Ini -->
+              <div class="test-download-card" style="margin-top:20px; padding-top:18px; border-top:1px solid var(--border);">
+                <h4 style="font-size:13.5px; font-weight:700; color:var(--text-main); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:var(--primary)">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Unduh Sertifikat Acara Ini
+                </h4>
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+                  Pilih salah satu peserta terdaftar di acara ini untuk langsung mengunduh sertifikat resminya:
+                </p>
+
+                <div class="form-group" style="margin-bottom:10px;">
+                  <select id="event-participant-download-select" class="input" style="font-size:13px; font-weight:600; padding:8px 12px;">
+                    <option value="">-- Pilih Peserta --</option>
+                  </select>
+                </div>
+
+                <button class="btn btn-primary btn-sm btn-block" onclick="downloadSelectedEventParticipantCert()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Unduh Sertifikat Peserta Terpilih
+                </button>
+              </div>
+
               <div id="pos-msg" class="alert alert-success" style="display:none; margin-top:12px;">Posisi teks berhasil
                 disimpan!</div>
             </div>
@@ -1015,8 +1051,39 @@
     </div>
   </div>
 
+  <!-- MODAL BUAT ACARA BARU -->
+  <div id="modal-add-event" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+        <h3 style="margin-bottom:0;">Buat Acara Baru</h3>
+        <button class="btn-close-modal" onclick="closeModal()" title="Tutup">&times;</button>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
+        Setiap acara memiliki template gambar latar dan posisi teks sertifikat masing-masing.
+      </p>
+
+      <div class="form-group">
+        <label class="label">Nama Kegiatan / Acara *</label>
+        <input type="text" id="new-event-name" class="input" placeholder="Contoh: Seminar Nasional AI 2026"
+          onkeydown="if(event.key==='Enter')createEvent()">
+      </div>
+      <div class="form-group">
+        <label class="label">Tanggal Kegiatan</label>
+        <input type="date" id="new-event-date" class="input"
+          onkeydown="if(event.key==='Enter')createEvent()">
+      </div>
+
+      <div id="modal-event-error" class="alert alert-error" style="display:none"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+        <button class="btn btn-primary" id="btn-submit-create-event" onclick="createEvent()">Buat Acara</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Custom JS -->
-  <script src="script.js?v=4.0"></script>
+  <script src="script.js?v=4.2"></script>
 </body>
 
 </html>
