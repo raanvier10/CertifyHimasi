@@ -1538,8 +1538,9 @@ tr:hover td {
 
 #drag-role {
   top: 55%;
-  font-family: var(--font-family);
-  font-weight: 700;
+  font-family: 'Times New Roman', serif;
+  font-weight: bold;
+  font-style: normal;
   font-size: 16px;
   color: var(--accent-gold);
 }

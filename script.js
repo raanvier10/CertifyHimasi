@@ -1119,7 +1119,7 @@ async function generatePDF(p, ev) {
   doc.text(p.nama, cfg.name.x, cfg.name.y, { align: 'center', baseline: 'middle' });
 
   // Cetak Peran
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('times', 'bold');
   doc.setFontSize(cfg.role.size);
   doc.text(p.peran, cfg.role.x, cfg.role.y, { align: 'center', baseline: 'middle' });
 
