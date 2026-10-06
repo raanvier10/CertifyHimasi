@@ -640,6 +640,44 @@ function doSearch() {
     return;
   }
 
+// Helper: Format badge peran agar lebih profesional dan tidak mentah
+function formatRoleBadge(role) {
+  if (!role) return { label: 'Peserta Resmi', type: 'peserta' };
+  const r = String(role).trim();
+  const rLower = r.toLowerCase();
+  if (rLower === 'peserta') return { label: 'Peserta Resmi', type: 'peserta' };
+  if (rLower === 'panitia') return { label: 'Panitia Pelaksana', type: 'panitia' };
+  if (rLower === 'narasumber' || rLower === 'speaker') return { label: 'Narasumber', type: 'narasumber' };
+  if (rLower === 'moderator') return { label: 'Moderator Acara', type: 'moderator' };
+  if (rLower.startsWith('sie ') || rLower.startsWith('divisi ')) {
+    return { label: `Panitia · ${r}`, type: 'panitia' };
+  }
+  if (r.length <= 15 && !rLower.includes('peserta')) {
+    return { label: `Panitia · Sie ${r.toUpperCase()}`, type: 'panitia' };
+  }
+  return { label: r, type: 'custom' };
+}
+
+// Helper: Nama kegiatan yang informatif dan tidak jatuh ke fallback mentah
+function getResolvedEventName(item) {
+  if (item && item.eventName && item.eventName !== 'Acara') return item.eventName;
+  if (item && item.eventId) {
+    const ev = state.events.find(e => e.id === item.eventId);
+    if (ev && ev.name) return ev.name;
+  }
+  if (state.activeEventId) {
+    const ev = state.events.find(e => e.id === state.activeEventId);
+    if (ev && ev.name) return ev.name;
+  }
+  if (state.events && state.events.length > 0 && state.events[0].name) {
+    return state.events[0].name;
+  }
+  if (state.settings && state.settings.eventName) {
+    return state.settings.eventName;
+  }
+  return 'Kegiatan Resmi HIMASI UBSI';
+}
+
   // Kelompokkan hasil pencarian berdasarkan nama yang sama
   const groups = {};
   matches.forEach(m => {
@@ -650,69 +688,140 @@ function doSearch() {
 
   area.innerHTML = Object.entries(groups).map(([name, items], gIdx) => {
     const isMulti = items.length > 1;
+    const firstItem = items[0];
+    const initialEventName = getResolvedEventName(firstItem);
+    const initialRole = formatRoleBadge(firstItem.peran);
+    const rawId = firstItem.id || String(Math.abs(name.split('').reduce((a,c)=>((a<<5)-a)+c.charCodeAt(0)|0, 0)));
+    const cleanId = rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'HM26';
+
     return `
     <div class="pub-result-card">
-      <div class="result-header">
-        <div class="res-badge-wrap">
-          <span class="badge badge-success">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>
-            Data Terverifikasi Resmi
-          </span>
-          ${isMulti ? `<span class="badge badge-blue">${items.length} Sertifikat Tersedia</span>` : ''}
+      <!-- Card Top Credential Header -->
+      <div class="credential-header">
+        <div class="credential-org-wrap">
+          <div class="credential-shield-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+          </div>
+          <div>
+            <div class="credential-org-title">HIMASI UBSI Karawang</div>
+            <div class="credential-org-sub">E-Sertifikat Terverifikasi Resmi</div>
+          </div>
         </div>
-        <h3 class="res-participant-name">${escapeHtml(name)}</h3>
+        <div class="credential-id-badge">
+          <span>CN-${cleanId}</span>
+        </div>
+      </div>
+
+      <!-- Recipient Presentation -->
+      <div class="credential-recipient-box">
+        <div class="credential-overline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;color:var(--accent-gold)">
+            <circle cx="12" cy="8" r="7"/>
+            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+          </svg>
+          Dokumen Diterbitkan Kepada
+        </div>
+        <h3 class="credential-name">${escapeHtml(name)}</h3>
       </div>
 
       ${isMulti ? `
-        <div class="multi-event-container">
-          <label class="label" style="font-size:12.5px; margin-bottom:6px;">
+        <div class="multi-event-wrapper">
+          <label class="multi-event-label">
             Pilih Sertifikat Kegiatan yang Ingin Diunduh:
           </label>
           <div class="select-wrap">
             <select class="input res-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
-              ${items.map((it, idx) => `
-                <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(it.eventName || 'Acara')}" ${idx === 0 ? 'selected' : ''}>
-                  ${escapeHtml(it.eventName || 'Acara')} · Sebagai ${escapeHtml(it.peran)}
+              ${items.map((it, idx) => {
+                const evN = getResolvedEventName(it);
+                const rB = formatRoleBadge(it.peran);
+                return `
+                <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(evN)}" ${idx === 0 ? 'selected' : ''}>
+                  ${escapeHtml(evN)} · Sebagai ${escapeHtml(rB.label)}
                 </option>
-              `).join('')}
+                `;
+              }).join('')}
             </select>
           </div>
+        </div>
+      ` : ''}
 
-          <div class="event-meta-card">
-            <div class="meta-row">
-              <span class="meta-label">Kegiatan</span>
-              <span class="meta-val" id="pub-meta-event-${gIdx}">${escapeHtml(items[0].eventName || 'Kegiatan')}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-label">Peran</span>
-              <span class="meta-val"><span class="badge badge-gold" id="pub-meta-role-${gIdx}">${escapeHtml(items[0].peran)}</span></span>
+      <!-- Credential Details Grid -->
+      <div class="credential-details-grid">
+        <div class="detail-item-card">
+          <div class="detail-icon-circle event-type">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+              <polyline points="10 6 14 10 10 14"/>
+            </svg>
+          </div>
+          <div class="detail-content-wrap">
+            <div class="detail-item-lbl">Nama Kegiatan / Acara</div>
+            <div class="detail-item-val" id="pub-meta-event-${gIdx}">${escapeHtml(initialEventName)}</div>
+          </div>
+        </div>
+
+        <div class="detail-item-card">
+          <div class="detail-icon-circle role-type">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="7" r="4"/>
+              <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+            </svg>
+          </div>
+          <div class="detail-content-wrap">
+            <div class="detail-item-lbl">Status &amp; Peran</div>
+            <div class="detail-item-val">
+              <span class="role-badge role-${initialRole.type}" id="pub-meta-role-${gIdx}">
+                ${escapeHtml(initialRole.label)}
+              </span>
             </div>
           </div>
-
-          <button class="btn btn-primary btn-block btn-lg" onclick="downloadCert(document.getElementById('pub-sel-${gIdx}').value)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Unduh E-Sertifikat (PDF HD)
-          </button>
         </div>
-      ` : `
-        <div class="single-event-container">
-          <div class="event-meta-card">
-            <div class="meta-row">
-              <span class="meta-label">Kegiatan</span>
-              <span class="meta-val">${escapeHtml(items[0].eventName || 'Kegiatan')}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-label">Status / Peran</span>
-              <span class="meta-val"><span class="badge badge-gold">${escapeHtml(items[0].peran)}</span></span>
-            </div>
+      </div>
+
+      <!-- Specs Bar -->
+      <div class="credential-specs-bar">
+        <div class="spec-badge-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>Format: Dokumen PDF HD (Landscape A4 · 300 DPI)</span>
+        </div>
+        <div class="spec-badge-item" style="color:var(--success)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--success)">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>Siap Cetak &amp; Sah</span>
+        </div>
+      </div>
+
+      <!-- Action Area -->
+      <div class="credential-action-area">
+        <button class="credential-btn-download" onclick="${isMulti ? `downloadCert(document.getElementById('pub-sel-${gIdx}').value)` : `downloadCert('${escapeHtml(firstItem.id)}')`}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <div class="btn-texts">
+            <span class="btn-title-main">Unduh E-Sertifikat Resmi</span>
+            <span class="btn-title-sub">Klik untuk memproses dan mengunduh berkas PDF</span>
           </div>
+        </button>
+      </div>
 
-          <button class="btn btn-primary btn-block btn-lg" onclick="downloadCert('${escapeHtml(items[0].id)}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Unduh E-Sertifikat (PDF HD)
-          </button>
-        </div>
-      `}
+      <!-- Security Trust Footer -->
+      <div class="credential-trust-footer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span>Diverifikasi secara digital oleh Himpunan Mahasiswa Sistem Informasi UBSI Karawang</span>
+      </div>
     </div>`;
   }).join('');
 }
@@ -726,7 +835,11 @@ function onSelectPubEvent(gIdx) {
   const evName = opt.getAttribute('data-event');
   const roleEl = document.getElementById('pub-meta-role-' + gIdx);
   const evEl = document.getElementById('pub-meta-event-' + gIdx);
-  if (roleEl) roleEl.textContent = role || '';
+  if (roleEl) {
+    const fRole = formatRoleBadge(role);
+    roleEl.textContent = fRole.label;
+    roleEl.className = 'role-badge role-' + fRole.type;
+  }
   if (evEl) evEl.textContent = evName || '';
 }
 

@@ -112,13 +112,15 @@
         Karawang.</p>
 
       <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          style="width:20px;height:20px;color:var(--text-light);flex-shrink:0">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input type="text" id="pub-search" placeholder="Ketik nama lengkap peserta..." maxlength="60" spellcheck="false"
-          onkeydown="if(event.key==='Enter')doSearch()" autocomplete="off">
+        <div class="search-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            style="width:20px;height:20px;color:var(--text-light);flex-shrink:0">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" id="pub-search" placeholder="Ketik nama lengkap peserta..." maxlength="60" spellcheck="false"
+            onkeydown="if(event.key==='Enter')doSearch()" autocomplete="off">
+        </div>
         <button class="search-btn" onclick="doSearch()">Cari Sertifikat</button>
       </div>
       <div class="search-helper-text">Tekan Enter atau klik Cari untuk memeriksa data peserta.</div>
@@ -141,21 +143,24 @@
         <div class="steps-grid">
           <div class="step-card">
             <div class="step-number">1</div>
-            <h3>Ketik Nama Lengkap</h3>
-            <p>Masukkan nama lengkap sesuai identitas yang Anda gunakan saat mendaftar kegiatan atau kepanitiaan HIMASI.
-            </p>
+            <div class="step-card-content">
+              <h3>Ketik Nama Lengkap</h3>
+              <p>Masukkan nama lengkap sesuai identitas yang Anda gunakan saat mendaftar kegiatan atau kepanitiaan HIMASI.</p>
+            </div>
           </div>
           <div class="step-card">
             <div class="step-number">2</div>
-            <h3>Pilih Sertifikat Acara</h3>
-            <p>Jika Anda mengikuti beberapa kegiatan, pilih sertifikat yang diinginkan melalui pemilih kegiatan yang
-              tersedia.</p>
+            <div class="step-card-content">
+              <h3>Pilih Sertifikat Acara</h3>
+              <p>Jika Anda mengikuti beberapa kegiatan, pilih sertifikat yang diinginkan melalui pemilih kegiatan yang tersedia.</p>
+            </div>
           </div>
           <div class="step-card">
             <div class="step-number">3</div>
-            <h3>Unduh Dokumen PDF HD</h3>
-            <p>Klik tombol unduh untuk mengunduh dokumen PDF sertifikat beresolusi tinggi yang siap dicetak maupun
-              disimpan.</p>
+            <div class="step-card-content">
+              <h3>Unduh Dokumen PDF HD</h3>
+              <p>Klik tombol unduh untuk mengunduh dokumen PDF sertifikat beresolusi tinggi yang siap dicetak maupun disimpan.</p>
+            </div>
           </div>
         </div>
       </div>
