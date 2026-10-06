@@ -31,7 +31,6 @@ function showPage(p) {
   const target = document.getElementById('page-' + p);
   if (target) target.classList.add('active');
   window.scrollTo(0, 0);
-  if (p === 'public') updatePublicStats();
   if (p === 'admin') {
     renderDashboard();
     renderPesertaTable();
@@ -77,7 +76,6 @@ function onSwitchEvent(eventId) {
   setEditorTemplate(ev.template_url);
   applyPositions();
   renderEventPills();
-  updatePublicStats();
   renderDashboard();
 }
 
@@ -339,7 +337,6 @@ async function loadEvents() {
       setEditorTemplate(active.template_url);
       applyPositions();
     }
-    updatePublicStats();
   } catch (err) {
     console.error("Gagal load events:", err);
   }
@@ -362,7 +359,6 @@ async function loadParticipants() {
         createdAt: r.created_at
       };
     });
-    updatePublicStats();
     if (document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active')) {
       renderDashboard();
       renderPesertaTable();
@@ -577,18 +573,6 @@ function onSelectPubEvent(gIdx) {
   const evEl = document.getElementById('pub-meta-event-' + gIdx);
   if (roleEl) roleEl.textContent = role || '';
   if (evEl) evEl.textContent = evName || '';
-}
-
-function updatePublicStats() {
-  const total = state.participants.length;
-  const dl = state.downloads.length;
-  const evCount = state.events.length;
-  const pubTotal = document.getElementById('pub-total');
-  const pubDl = document.getElementById('pub-downloads');
-  const pubEv = document.getElementById('pub-events-count');
-  if (pubTotal) pubTotal.textContent = total;
-  if (pubDl) pubDl.textContent = dl;
-  if (pubEv) pubEv.textContent = evCount;
 }
 
 function toggleMobileMenu() {
@@ -1264,7 +1248,6 @@ async function saveSettings() {
       msg.style.display = 'block';
       setTimeout(() => msg.style.display = 'none', 3000);
     }
-    updatePublicStats();
     renderDashboard();
   } catch (err) {
     console.error(err);
@@ -1616,7 +1599,6 @@ function initTemplateUploadZone() {
 }
 
 // ===== INIT =====
-updatePublicStats();
 initCertEditorDrag();
 initTemplateUploadZone();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
