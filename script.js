@@ -239,18 +239,72 @@ function renderEventDropdowns() {
 }
 
 function showAddEventModal() {
+  const modal = document.getElementById('modal-add-event');
   const nameInput = document.getElementById('new-event-name');
   const dateInput = document.getElementById('new-event-date');
   const err = document.getElementById('modal-event-error');
+
   if (nameInput) nameInput.value = '';
   if (dateInput) {
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
   }
-  if (err) err.style.display = 'none';
-  const modal = document.getElementById('modal-add-event');
-  if (modal) modal.style.display = 'flex';
-  setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
+  if (err) {
+    err.textContent = '';
+    err.style.display = 'none';
+  }
+
+  if (modal) {
+    modal.style.display = 'flex';
+    setTimeout(() => { if (nameInput) nameInput.focus(); }, 80);
+  } else {
+    // Fallback jika modal DOM terganggu
+    const promptName = prompt('Masukkan Nama Kegiatan / Acara baru:');
+    if (promptName && promptName.trim()) {
+      quickCreateEvent(promptName.trim());
+    }
+  }
+}
+
+async function quickCreateEvent(name, date = null) {
+  const initialPos = {
+    name: { x: 148, y: 105, size: 32 },
+    role: { x: 148, y: 132, size: 18 },
+    event: { x: 148, y: 155, size: 12 },
+    color: '#1E255E'
+  };
+  let newEvent = null;
+  if (sb) {
+    try {
+      const { data, error } = await sb.from('events').insert({
+        name,
+        date: date || null,
+        positions: initialPos
+      }).select();
+      if (!error && data && data.length > 0) newEvent = data[0];
+    } catch (e) {
+      console.warn('Supabase insert fallback:', e);
+    }
+  }
+  if (!newEvent) {
+    newEvent = {
+      id: 'ev_' + Date.now(),
+      name,
+      date: date || null,
+      positions: initialPos,
+      template_url: null
+    };
+  }
+  state.events = state.events.filter(e => e.id !== newEvent.id);
+  state.events.push(newEvent);
+  state.activeEventId = newEvent.id;
+  renderEventDropdowns();
+  renderEventPills();
+  onSwitchEvent(newEvent.id);
+  renderDashboard();
+  const tabBtn = document.querySelector('.nav-item[data-tab="template"]');
+  if (tabBtn) showTab('template', tabBtn);
+  return newEvent;
 }
 
 async function createEvent() {
@@ -266,6 +320,8 @@ async function createEvent() {
     if (err) {
       err.textContent = 'Nama kegiatan / acara tidak boleh kosong.';
       err.style.display = 'block';
+    } else {
+      alert('Nama kegiatan / acara tidak boleh kosong.');
     }
     if (nameInput) nameInput.focus();
     return;
@@ -273,36 +329,67 @@ async function createEvent() {
 
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Membuat Acara...';
+    submitBtn.textContent = 'Menyimpan...';
   }
 
+  const initialPos = {
+    name: { x: 148, y: 105, size: 32 },
+    role: { x: 148, y: 132, size: 18 },
+    event: { x: 148, y: 155, size: 12 },
+    color: '#1E255E'
+  };
+  const cleanDate = (date && date.trim()) ? date.trim() : null;
+
   try {
-    const initialPos = {
-      name: { x: 148, y: 105, size: 32 },
-      role: { x: 148, y: 132, size: 18 },
-      event: { x: 148, y: 155, size: 12 },
-      color: '#1E255E'
-    };
+    let created = null;
 
-    const cleanDate = (date && date.trim()) ? date.trim() : null;
+    if (sb) {
+      const { data, error } = await sb.from('events').insert({
+        name,
+        date: cleanDate,
+        positions: initialPos
+      }).select();
 
-    const { data, error } = await sb.from('events').insert({
-      name,
-      date: cleanDate,
-      positions: initialPos
-    }).select();
-
-    if (error) throw error;
-    closeModal();
-    await loadEvents();
-    const newEvent = (Array.isArray(data) && data.length > 0) ? data[0] : data;
-    if (newEvent && newEvent.id) {
-      onSwitchEvent(newEvent.id);
+      if (error) throw error;
+      created = (Array.isArray(data) && data.length > 0) ? data[0] : data;
     }
+
+    if (!created) {
+      created = {
+        id: 'ev_' + Date.now(),
+        name,
+        date: cleanDate,
+        positions: initialPos,
+        template_url: null
+      };
+    }
+
+    // Perbarui state lokal segera
+    state.events = state.events.filter(e => e.id !== created.id);
+    state.events.push(created);
+    state.activeEventId = created.id;
+
+    closeModal();
+
+    if (sb) {
+      await loadEvents();
+    } else {
+      renderEventDropdowns();
+      renderEventPills();
+    }
+
+    onSwitchEvent(created.id);
+    renderDashboard();
+
+    // Beralih ke tab Template agar langsung bisa atur latar sertifikat
     const tabBtn = document.querySelector('.nav-item[data-tab="template"]');
     if (tabBtn) showTab('template', tabBtn);
+
+    // Bersihkan form
+    if (nameInput) nameInput.value = '';
+
   } catch (e) {
-    console.error(e);
+    console.error('Gagal membuat acara:', e);
     if (err) {
       err.textContent = 'Gagal membuat acara: ' + (e.message || e);
       err.style.display = 'block';
@@ -2062,6 +2149,7 @@ window.downloadCert = downloadCert;
 window.onSelectPubEvent = onSelectPubEvent;
 window.showAddEventModal = showAddEventModal;
 window.createEvent = createEvent;
+window.quickCreateEvent = quickCreateEvent;
 window.deleteActiveEvent = deleteActiveEvent;
 window.deleteEventById = deleteEventById;
 window.onSwitchEvent = onSwitchEvent;

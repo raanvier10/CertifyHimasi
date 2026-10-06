@@ -376,7 +376,7 @@
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              + Buat Acara Baru
+              Buat Acara Baru
             </button>
             <button class="btn btn-outline btn-sm"
               onclick="showTab('upload-peserta', document.querySelector('[data-tab=\'upload-peserta\']'))">
@@ -481,7 +481,7 @@
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                + Tambah Acara Baru
+                Tambah Acara Baru
               </button>
             </div>
             <div id="dashboard-events-list" class="events-overview-grid">
@@ -531,7 +531,7 @@
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              + Buat Acara Baru
+              Buat Acara Baru
             </button>
           </div>
 
@@ -997,11 +997,15 @@
        ========================================================================= -->
 
   <!-- MODAL TAMBAH ACARA BARU -->
-  <div id="modal-add-event" class="modal-overlay" style="display:none">
+  <div id="modal-add-event" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h3>Buat Acara Baru</h3>
-      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Tambahkan kegiatan baru ke sistem. Anda
-        dapat mengunggah template dan mengimport data peserta setelah acara dibuat.</p>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <h3 style="margin-bottom:0;">Buat Acara Baru</h3>
+        <button class="btn-close-modal" onclick="closeModal()" title="Tutup">&times;</button>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+        Tambahkan kegiatan baru. Setiap acara memiliki template latar gambar dan tata letak teks sertifikat masing-masing.
+      </p>
 
       <div class="form-group">
         <label class="label">Nama Kegiatan / Acara *</label>
@@ -1023,9 +1027,12 @@
   </div>
 
   <!-- MODAL TAMBAH / EDIT PESERTA -->
-  <div id="modal-peserta" class="modal-overlay" style="display:none">
+  <div id="modal-peserta" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h3 id="modal-peserta-title">Tambah Peserta</h3>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <h3 id="modal-peserta-title" style="margin-bottom:0;">Tambah Peserta</h3>
+        <button class="btn-close-modal" onclick="closeModal()" title="Tutup">&times;</button>
+      </div>
       <input type="hidden" id="modal-edit-id">
 
       <div class="form-group">
@@ -1053,9 +1060,12 @@
   </div>
 
   <!-- MODAL KONFIRMASI HAPUS PESERTA -->
-  <div id="modal-delete" class="modal-overlay" style="display:none">
+  <div id="modal-delete" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h3>Konfirmasi Hapus Peserta</h3>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <h3 style="margin-bottom:0;">Konfirmasi Hapus Peserta</h3>
+        <button class="btn-close-modal" onclick="closeModal()" title="Tutup">&times;</button>
+      </div>
       <p style="font-size:14px; color:var(--text-body); margin-bottom:0;">
         Apakah Anda yakin ingin menghapus data peserta <strong id="delete-name"></strong>? Data yang dihapus tidak dapat
         dipulihkan.
@@ -1067,39 +1077,8 @@
     </div>
   </div>
 
-  <!-- MODAL BUAT ACARA BARU -->
-  <div id="modal-add-event" class="modal-overlay" style="display:none">
-    <div class="modal">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
-        <h3 style="margin-bottom:0;">Buat Acara Baru</h3>
-        <button class="btn-close-modal" onclick="closeModal()" title="Tutup">&times;</button>
-      </div>
-      <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
-        Setiap acara memiliki template gambar latar dan posisi teks sertifikat masing-masing.
-      </p>
-
-      <div class="form-group">
-        <label class="label">Nama Kegiatan / Acara *</label>
-        <input type="text" id="new-event-name" class="input" placeholder="Contoh: Seminar Nasional AI 2026"
-          onkeydown="if(event.key==='Enter')createEvent()">
-      </div>
-      <div class="form-group">
-        <label class="label">Tanggal Kegiatan</label>
-        <input type="date" id="new-event-date" class="input"
-          onkeydown="if(event.key==='Enter')createEvent()">
-      </div>
-
-      <div id="modal-event-error" class="alert alert-error" style="display:none"></div>
-
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal()">Batal</button>
-        <button class="btn btn-primary" id="btn-submit-create-event" onclick="createEvent()">Buat Acara</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Custom JS -->
-  <script src="script.js?v=4.2"></script>
+  <script src="script.js?v=4.3"></script>
 </body>
 
 </html>
