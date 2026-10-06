@@ -30,6 +30,7 @@ function showPage(p) {
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
   const target = document.getElementById('page-' + p);
   if (target) target.classList.add('active');
+  window.scrollTo(0, 0);
   if (p === 'public') updatePublicStats();
   if (p === 'admin') {
     renderDashboard();

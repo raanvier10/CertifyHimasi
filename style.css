@@ -297,8 +297,6 @@ body {
    ========================================================================== */
 #page-public {
   background: var(--bg-page);
-  display: flex;
-  flex-direction: column;
 }
 
 .pub-nav {
@@ -639,16 +637,9 @@ body {
    LOGIN PAGE
    ========================================================================== */
 #page-login {
-  display: none;
-  align-items: center;
-  justify-content: center;
   background: var(--bg-page);
   min-height: 100vh;
   padding: 24px;
-}
-
-#page-login.active {
-  display: flex;
 }
 
 .login-wrap {
@@ -708,13 +699,7 @@ body {
    ADMIN DASHBOARD LAYOUT
    ========================================================================== */
 #page-admin {
-  display: none;
-  flex-direction: row;
   min-height: 100vh;
-}
-
-#page-admin.active {
-  display: flex;
 }
 
 .sidebar {
