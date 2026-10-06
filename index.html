@@ -31,36 +31,66 @@
   <div id="page-public" class="page active">
     <!-- Navbar Start -->
     <nav class="pub-nav">
-      <a class="pub-brand" href="javascript:void(0)" onclick="handleLogoSecretClick()" title="HIMASI UBSI Karawang">
-        <img src="assets/LogoHima.svg" alt="Logo HIMASI UBSI Karawang" class="pub-logo-img">
-        <div class="pub-brand-text">
-          <span class="pub-brand-title">HIMASI UBSI Karawang</span>
-          <span class="pub-brand-sub">Himpunan Mahasiswa Sistem Informasi</span>
+      <div class="pub-nav-container">
+        <a class="pub-brand" href="javascript:void(0)" onclick="handleLogoSecretClick()" title="HIMASI UBSI Karawang">
+          <img src="assets/LogoHima.svg" alt="Logo HIMASI UBSI Karawang" class="pub-logo-img">
+          <div class="pub-brand-text">
+            <span class="pub-brand-title">HIMASI UBSI Karawang</span>
+            <span class="pub-brand-sub">Himpunan Mahasiswa Sistem Informasi</span>
+          </div>
+          <span class="pub-pill-tag">Portal E-Sertifikat</span>
+        </a>
+
+        <!-- Desktop Nav Links & Actions -->
+        <div class="pub-nav-right">
+          <div class="pub-nav-links">
+            <a href="#hero-search" class="pub-nav-link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <span>Cari Sertifikat</span>
+            </a>
+            <a href="#section-alur" class="pub-nav-link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span>Panduan Ringkas</span>
+            </a>
+          </div>
+
+          <button class="pub-menu-toggle" id="pub-menu-toggle" aria-label="Toggle Navigation Menu" onclick="toggleMobileMenu()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
         </div>
-        <span class="pub-pill-tag">Portal E-Sertifikat</span>
-      </a>
-
-      <!-- Desktop Nav Links -->
-      <div class="pub-nav-links">
-        <a href="#hero-search" class="pub-nav-link">Cari Sertifikat</a>
-        <a href="#section-alur" class="pub-nav-link">Panduan Ringkas</a>
-      </div>
-
-      <div class="pub-nav-actions">
-        <button class="pub-menu-toggle" id="pub-menu-toggle" aria-label="Toggle Navigation Menu" onclick="toggleMobileMenu()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
       </div>
     </nav>
 
     <!-- Mobile Nav Drawer -->
     <div class="mobile-nav-drawer" id="mobile-nav-drawer">
-      <a href="#hero-search" class="pub-nav-link" onclick="toggleMobileMenu()">Cari Sertifikat</a>
-      <a href="#section-alur" class="pub-nav-link" onclick="toggleMobileMenu()">Panduan Ringkas</a>
+      <a href="#hero-search" class="pub-nav-link" onclick="toggleMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span>Cari Sertifikat</span>
+      </a>
+      <a href="#section-alur" class="pub-nav-link" onclick="toggleMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span>Panduan Ringkas</span>
+      </a>
     </div>
     <!-- Navbar End -->
 
