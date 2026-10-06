@@ -468,12 +468,56 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 48px 24px;
+  padding: 40px 24px;
   text-align: center;
   background: radial-gradient(circle at 50% 30%, rgba(30, 37, 94, 0.04) 0%, transparent 70%), linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
   border-bottom: 1px solid var(--border);
   box-sizing: border-box;
   scroll-margin-top: 68px;
+  transition: padding 0.25s ease, min-height 0.25s ease;
+}
+
+/* Mode Adaptif Saat Cari Sertifikat (Seluruh Tampilan Pas 1 Layar Tanpa Terpotong) */
+.hero.search-active {
+  min-height: calc(100vh - 68px);
+  min-height: calc(100dvh - 68px);
+  padding: 14px 20px 18px;
+  justify-content: center;
+}
+
+.hero.search-active .hero-tag {
+  display: none;
+}
+
+.hero.search-active h1 {
+  font-size: 21px;
+  margin-bottom: 2px;
+  letter-spacing: -0.3px;
+}
+
+.hero.search-active p {
+  display: none;
+}
+
+.hero.search-active .search-box {
+  max-width: 550px;
+  padding: 4px 4px 4px 14px;
+  margin-top: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+.hero.search-active .search-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.hero.search-active .search-helper-text {
+  display: none;
+}
+
+.hero.search-active .result-area {
+  margin-top: 10px;
+  max-width: 550px;
 }
 
 .hero-tag {
@@ -584,10 +628,10 @@ body {
 .pub-result-card {
   background: #FFFFFF;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 10px 28px -4px rgba(30, 37, 94, 0.08), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
-  margin-bottom: 24px;
-  animation: cardFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 14px;
+  box-shadow: 0 10px 25px -4px rgba(30, 37, 94, 0.08), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
+  margin-bottom: 0;
+  animation: cardFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   position: relative;
   text-align: left;
@@ -599,36 +643,36 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 3px;
   background: linear-gradient(90deg, var(--primary) 0%, #2563EB 50%, var(--accent-gold) 100%);
 }
 
 @keyframes cardFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* Header */
 .credential-header {
-  padding: 18px 24px 14px;
+  padding: 12px 18px 10px;
   border-bottom: 1px solid #EDF2F7;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   background: linear-gradient(180deg, #FAFCFF 0%, #FFFFFF 100%);
 }
 
 .credential-org-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .credential-shield-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   background: var(--success-light);
   border: 1px solid var(--success-border);
   color: var(--success);
@@ -639,31 +683,31 @@ body {
 }
 
 .credential-shield-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .credential-org-title {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--primary);
   line-height: 1.2;
 }
 
 .credential-org-sub {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--success);
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .credential-org-sub::before {
   content: '';
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--success);
   display: inline-block;
@@ -679,13 +723,13 @@ body {
 .credential-id-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 3px 8px;
   background: #F1F5F9;
   border: 1px solid #E2E8F0;
   border-radius: var(--radius-full);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.5px;
@@ -693,45 +737,45 @@ body {
 
 /* Recipient Presentation */
 .credential-recipient-box {
-  padding: 22px 24px 16px;
+  padding: 12px 18px 8px;
 }
 
 .credential-overline {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .credential-name {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 800;
   color: #0F172A;
-  letter-spacing: -0.4px;
-  line-height: 1.25;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
   word-break: break-word;
 }
 
 /* Multi Event Wrapper */
 .multi-event-wrapper {
-  padding: 0 24px 16px;
+  padding: 0 18px 10px;
 }
 
 .multi-event-label {
   display: block;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text-main);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .select-wrap {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .res-event-select {
@@ -740,29 +784,32 @@ body {
   background: #FFFFFF;
   border: 1.5px solid var(--primary-border);
   cursor: pointer;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   width: 100%;
+  font-size: 13px;
 }
 
 /* Credential Details Grid */
 .credential-details-grid {
-  padding: 0 24px;
+  padding: 0 18px;
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .detail-item-card {
   background: #F8FAFC;
   border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 14px 16px;
+  border-radius: 10px;
+  padding: 8px 12px;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   transition: all 0.15s ease;
+  user-select: none;
+  cursor: default;
 }
 
 .detail-item-card:hover {
@@ -771,9 +818,9 @@ body {
 }
 
 .detail-icon-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -793,8 +840,8 @@ body {
 }
 
 .detail-icon-circle svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .detail-content-wrap {
@@ -803,19 +850,19 @@ body {
 }
 
 .detail-item-lbl {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .detail-item-val {
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--text-main);
-  line-height: 1.35;
+  line-height: 1.3;
   word-break: break-word;
 }
 
@@ -823,11 +870,12 @@ body {
 .role-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
 }
 
 .role-badge.role-panitia {
@@ -862,36 +910,36 @@ body {
 
 /* Specs Bar */
 .credential-specs-bar {
-  margin: 0 24px 18px;
-  padding: 10px 14px;
+  margin: 0 18px 10px;
+  padding: 6px 12px;
   background: #F8FAFC;
   border: 1px dashed #CBD5E1;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .spec-badge-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-weight: 600;
 }
 
 .spec-badge-item svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   color: var(--primary);
 }
 
 /* Action Area */
 .credential-action-area {
-  padding: 0 24px 18px;
+  padding: 0 18px 10px;
 }
 
 .credential-btn-download {
@@ -899,16 +947,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 14px 24px;
+  gap: 10px;
+  padding: 11px 20px;
   background: linear-gradient(135deg, #1E255E 0%, #151A46 100%);
   color: #FFFFFF;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-md);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(30, 37, 94, 0.28);
+  box-shadow: 0 3px 12px rgba(30, 37, 94, 0.25);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
   font-family: var(--font-family);
@@ -916,18 +964,18 @@ body {
 
 .credential-btn-download:hover {
   background: linear-gradient(135deg, #252F7A 0%, #1E255E 100%);
-  box-shadow: 0 6px 20px rgba(30, 37, 94, 0.38);
-  transform: translateY(-1.5px);
+  box-shadow: 0 5px 16px rgba(30, 37, 94, 0.35);
+  transform: translateY(-1px);
 }
 
 .credential-btn-download:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(30, 37, 94, 0.2);
+  box-shadow: 0 2px 6px rgba(30, 37, 94, 0.2);
 }
 
 .credential-btn-download svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   transition: transform 0.2s ease;
 }
@@ -943,36 +991,36 @@ body {
 }
 
 .btn-title-main {
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 800;
   line-height: 1.2;
 }
 
 .btn-title-sub {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.75);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 /* Security Trust Footer */
 .credential-trust-footer {
-  padding: 12px 24px;
+  padding: 8px 16px;
   background: #F8FAFC;
   border-top: 1px solid #EDF2F7;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 11.5px;
+  gap: 6px;
+  font-size: 10.5px;
   color: var(--text-muted);
   font-weight: 600;
   text-align: center;
 }
 
 .credential-trust-footer svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   color: var(--success);
   flex-shrink: 0;
 }
@@ -1999,41 +2047,64 @@ tr:hover td {
   }
 
   /* Result Card Mobile */
+  .hero.search-active {
+    min-height: calc(100vh - 60px);
+    min-height: calc(100dvh - 60px);
+    padding: 12px 14px 16px;
+    justify-content: center;
+  }
+  .hero.search-active h1 {
+    font-size: 19px;
+    margin-bottom: 2px;
+  }
+  .hero.search-active .search-box {
+    margin-top: 4px;
+    padding: 4px 6px;
+    gap: 6px;
+  }
+  .hero.search-active .result-area {
+    margin-top: 8px;
+  }
   .credential-header {
-    padding: 16px;
+    padding: 10px 14px 8px;
   }
   .credential-recipient-box {
-    padding: 18px 16px 14px;
+    padding: 10px 14px 8px;
   }
   .credential-name {
-    font-size: 21px;
+    font-size: 19px;
   }
   .credential-details-grid {
     grid-template-columns: 1fr;
-    padding: 0 16px;
-    gap: 10px;
+    padding: 0 14px;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .detail-item-card {
+    padding: 6px 10px;
   }
   .multi-event-wrapper {
-    padding: 0 16px 14px;
+    padding: 0 14px 8px;
   }
   .credential-specs-bar {
-    margin: 0 16px 14px;
+    margin: 0 14px 8px;
+    padding: 5px 10px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 4px;
   }
   .credential-action-area {
-    padding: 0 16px 14px;
+    padding: 0 14px 8px;
   }
   .credential-btn-download {
-    padding: 13px 18px;
+    padding: 10px 16px;
   }
   .btn-title-main {
-    font-size: 14px;
+    font-size: 13px;
   }
   .credential-trust-footer {
-    padding: 10px 14px;
-    font-size: 11px;
+    padding: 6px 12px;
+    font-size: 10px;
   }
 
   .footer-grid {
@@ -2078,6 +2149,20 @@ tr:hover td {
   .hero h1 {
     font-size: 24px;
     line-height: 1.25;
+  }
+  .hero.search-active .search-box {
+    flex-direction: row;
+    padding: 4px 6px 4px 10px;
+    gap: 6px;
+  }
+  .hero.search-active .search-input-wrap input {
+    font-size: 13.5px;
+  }
+  .hero.search-active .search-btn {
+    width: auto;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    flex-shrink: 0;
   }
   .admin-header .admin-profile .btn span {
     display: none;

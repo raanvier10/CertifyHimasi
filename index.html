@@ -119,7 +119,7 @@
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input type="text" id="pub-search" placeholder="Ketik nama lengkap peserta..." maxlength="60" spellcheck="false"
-            onkeydown="if(event.key==='Enter')doSearch()" autocomplete="off">
+            onkeydown="if(event.key==='Enter')doSearch()" oninput="if(!this.value.trim()){document.getElementById('result-area').innerHTML='';const h=document.getElementById('hero-search');if(h)h.classList.remove('search-active');}" autocomplete="off">
         </div>
         <button class="search-btn" onclick="doSearch()">Cari Sertifikat</button>
       </div>

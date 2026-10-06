@@ -529,35 +529,20 @@ function escapeHtml(str) {
 // ===== PUBLIC SEARCH WITH THREAT MITIGATION (SQLi / XSS / FLOOD) =====
 function doSearch() {
   const inputEl = document.getElementById('pub-search');
+  const heroEl = document.getElementById('hero-search');
   const rawQ = (inputEl ? inputEl.value : '') || '';
   const area = document.getElementById('result-area');
   if (!area) return;
 
-  // 1. Rate Limiting pencarian untuk cegah flood/DoS & automated scraping
-  const now = Date.now();
-  if (!window._searchHistory) window._searchHistory = [];
-  window._searchHistory = window._searchHistory.filter(t => now - t < 3000);
-  if (window._searchHistory.length >= 6) {
-    area.innerHTML = `
-      <div class="search-empty-card" style="border-color:var(--accent-gold);">
-        <div class="empty-icon" style="background:var(--accent-gold-light); color:var(--accent-gold);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-        </div>
-        <h4>Terlalu Banyak Permintaan</h4>
-        <p>Mohon jeda sejenak sebelum mencari kembali demi kestabilan portal.</p>
-      </div>`;
-    return;
-  }
-  window._searchHistory.push(now);
-
   const trimmed = rawQ.trim();
   if (!trimmed) {
     area.innerHTML = '';
+    if (heroEl) heroEl.classList.remove('search-active');
     return;
   }
+
+  // Aktifkan mode kompak 1 layar
+  if (heroEl) heroEl.classList.add('search-active');
 
   // 2. Batasi Panjang Karakter (Cegah buffer / payload besar)
   if (trimmed.length > 60) {
