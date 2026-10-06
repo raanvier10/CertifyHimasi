@@ -22,7 +22,7 @@
     rel="stylesheet">
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="style.css?v=3.6">
+  <link rel="stylesheet" href="style.css?v=3.7">
 </head>
 
 <body>
@@ -581,7 +581,14 @@
             </div>
 
             <div style="margin-top:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-              <button class="btn btn-primary" onclick="saveSettings()">Simpan Perubahan Info Acara</button>
+              <button class="btn btn-primary" onclick="saveSettings()">💾 Simpan Perubahan Info Acara</button>
+              <button class="btn btn-outline" style="border-color:var(--primary); color:var(--primary); font-weight:600;" onclick="createEventFromForm()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:2px;">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Tambah Sebagai Acara Baru
+              </button>
               <div id="tpl-settings-msg" style="display:none; margin:0;" class="alert alert-success">Pengaturan info
                 acara berhasil diperbarui!</div>
             </div>
@@ -610,10 +617,9 @@
                 <img id="editor-bg" alt="Template latar sertifikat">
                 <div id="drag-name" class="draggable">Nama Lengkap Peserta</div>
                 <div id="drag-role" class="draggable">Sebagai Peran</div>
-                <div id="drag-event" class="draggable">Nama Kegiatan | Tanggal</div>
               </div>
               <p style="font-size:12px; color:var(--text-muted); margin-top:10px;">
-                * <strong>Panduan:</strong> Geser (drag) kotak teks nama, peran, dan kegiatan di atas untuk menyesuaikan
+                * <strong>Panduan:</strong> Geser (drag) kotak teks nama dan peran di atas untuk menyesuaikan
                 letaknya pada template acara ini.
               </p>
             </div>
@@ -629,10 +635,6 @@
               <div class="form-group">
                 <label class="label">Ukuran Teks Peran (px)</label>
                 <input type="number" id="cfg-role-size" class="input" value="18" oninput="updateEditorStyle()">
-              </div>
-              <div class="form-group">
-                <label class="label">Ukuran Teks Acara &amp; Tanggal (px)</label>
-                <input type="number" id="cfg-event-size" class="input" value="12" oninput="updateEditorStyle()">
               </div>
               <div class="form-group">
                 <label class="label">Warna Teks Utama</label>
@@ -1088,7 +1090,7 @@
   </div>
 
   <!-- Custom JS -->
-  <script src="script.js?v=4.4"></script>
+  <script src="script.js?v=4.5"></script>
 </body>
 
 </html>

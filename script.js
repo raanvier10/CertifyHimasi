@@ -312,7 +312,6 @@ async function quickCreateEvent(name, date = null) {
   const initialPos = {
     name: { x: 148, y: 105, size: 32 },
     role: { x: 148, y: 132, size: 18 },
-    event: { x: 148, y: 155, size: 12 },
     color: '#1E255E'
   };
   let newEvent = null;
@@ -324,6 +323,7 @@ async function quickCreateEvent(name, date = null) {
         positions: initialPos
       }).select();
       if (!error && data && data.length > 0) newEvent = data[0];
+      if (error) console.error('Supabase insert error in quickCreateEvent:', error);
     } catch (e) {
       console.warn('Supabase insert fallback:', e);
     }
@@ -340,6 +340,12 @@ async function quickCreateEvent(name, date = null) {
   state.events = state.events.filter(e => e.id !== newEvent.id);
   state.events.push(newEvent);
   state.activeEventId = newEvent.id;
+
+  if (sb) {
+    await loadEvents();
+    state.activeEventId = newEvent.id;
+  }
+
   renderEventDropdowns();
   renderEventPills();
   onSwitchEvent(newEvent.id);
@@ -371,13 +377,12 @@ async function createEvent() {
 
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Menyimpan...';
+    submitBtn.textContent = 'Menyimpan ke database...';
   }
 
   const initialPos = {
     name: { x: 148, y: 105, size: 32 },
     role: { x: 148, y: 132, size: 18 },
-    event: { x: 148, y: 155, size: 12 },
     color: '#1E255E'
   };
   const cleanDate = (date && date.trim()) ? date.trim() : null;
@@ -436,10 +441,12 @@ async function createEvent() {
 
     const msg = document.getElementById('tpl-settings-msg');
     if (msg) {
-      msg.textContent = `Acara "${name}" berhasil dibuat! Silakan unggah gambar template sertifikat di bawah.`;
+      msg.textContent = `Acara "${name}" berhasil dibuat dan tersimpan! Silakan unggah gambar template sertifikat di bawah.`;
       msg.style.display = 'block';
-      setTimeout(() => msg.style.display = 'none', 4000);
+      setTimeout(() => msg.style.display = 'none', 5000);
     }
+
+    alert(`Acara "${name}" berhasil ditambahkan ke database!\nSilakan unggah gambar template latar sertifikat untuk acara ini.`);
 
   } catch (e) {
     console.error('Gagal membuat acara:', e);
@@ -1116,12 +1123,6 @@ async function generatePDF(p, ev) {
   doc.setFontSize(cfg.role.size);
   doc.text(p.peran, cfg.role.x, cfg.role.y, { align: 'center', baseline: 'middle' });
 
-  // Cetak Nama Event & Tanggal
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(cfg.event.size);
-  const dateStr = eventDate ? new Date(eventDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-  doc.text(`${eventName} | ${dateStr}`, cfg.event.x, cfg.event.y, { align: 'center', baseline: 'middle' });
-
   doc.save(`Sertifikat_${p.nama.replace(/\s+/g, '_')}_${(eventName || 'Event').replace(/\s+/g, '_')}.pdf`);
 }
 
@@ -1255,7 +1256,6 @@ function getEditorPositions() {
   const color = document.getElementById('cfg-color')?.value || fb.color || '#1E255E';
   const nameSize = parseInt(document.getElementById('cfg-name-size')?.value || fb.name?.size || 32, 10);
   const roleSize = parseInt(document.getElementById('cfg-role-size')?.value || fb.role?.size || 18, 10);
-  const eventSize = parseInt(document.getElementById('cfg-event-size')?.value || fb.event?.size || 12, 10);
   const container = document.getElementById('canvas-container');
 
   const readPos = (id, fallback) => {
@@ -1273,7 +1273,6 @@ function getEditorPositions() {
   return {
     name: { ...readPos('drag-name', fb.name || { x: 148, y: 105 }), size: nameSize },
     role: { ...readPos('drag-role', fb.role || { x: 148, y: 132 }), size: roleSize },
-    event: { ...readPos('drag-event', fb.event || { x: 148, y: 155 }), size: eventSize },
     color
   };
 }
@@ -1297,15 +1296,12 @@ function applyPositions() {
 
   place('drag-name', pos.name);
   place('drag-role', pos.role);
-  place('drag-event', pos.event);
 
   const nameSize = document.getElementById('cfg-name-size');
   const roleSize = document.getElementById('cfg-role-size');
-  const eventSize = document.getElementById('cfg-event-size');
   const color = document.getElementById('cfg-color');
   if (nameSize && pos.name?.size) nameSize.value = pos.name.size;
   if (roleSize && pos.role?.size) roleSize.value = pos.role.size;
-  if (eventSize && pos.event?.size) eventSize.value = pos.event.size;
   if (color && pos.color) color.value = pos.color;
   updateEditorStyle();
 }
@@ -1391,16 +1387,13 @@ function initCertEditorDrag() {
 function updateEditorStyle() {
   const nameSize = document.getElementById('cfg-name-size')?.value || 32;
   const roleSize = document.getElementById('cfg-role-size')?.value || 18;
-  const eventSize = document.getElementById('cfg-event-size')?.value || 12;
   const color = document.getElementById('cfg-color')?.value || '#1E255E';
 
   const n = document.getElementById('drag-name');
   const r = document.getElementById('drag-role');
-  const e = document.getElementById('drag-event');
 
   if (n) { n.style.fontSize = nameSize + 'px'; n.style.color = color; }
   if (r) { r.style.fontSize = roleSize + 'px'; }
-  if (e) { e.style.fontSize = eventSize + 'px'; e.style.color = color; }
 }
 
 async function savePositions() {
@@ -1442,7 +1435,6 @@ async function resetPositionsDefault() {
   const defaultPos = {
     name: { x: 148, y: 105, size: 32 },
     role: { x: 148, y: 132, size: 18 },
-    event: { x: 148, y: 155, size: 12 },
     color: '#1E255E'
   };
   state.settings.positions = defaultPos;
@@ -1858,6 +1850,23 @@ async function saveSettings() {
     console.error(err);
     alert("Gagal menyimpan pengaturan acara: " + (err.message || err));
   }
+}
+
+async function createEventFromForm() {
+  const nameEl = document.getElementById('tpl-event-name') || document.getElementById('event-name');
+  const dateEl = document.getElementById('tpl-event-date') || document.getElementById('event-date');
+  const eventName = (nameEl ? nameEl.value : '').trim();
+  const eventDate = dateEl ? dateEl.value : '';
+
+  if (!eventName) {
+    alert('Silakan ketik nama kegiatan terlebih dahulu pada kolom Nama Kegiatan.');
+    if (nameEl) nameEl.focus();
+    return;
+  }
+
+  const cleanDate = (eventDate && eventDate.trim()) ? eventDate.trim() : null;
+  const newEv = await quickCreateEvent(eventName, cleanDate);
+  alert(`Acara "${eventName}" berhasil dibuat dan disimpan ke database!\nSilakan unggah gambar template latar sertifikat untuk acara ini.`);
 }
 
 // ===== PESERTA TABLE =====
@@ -2289,3 +2298,4 @@ window.toggleMobileMenu = toggleMobileMenu;
 window.handleLogoSecretClick = handleLogoSecretClick;
 window.downloadSelectedEventParticipantCert = downloadSelectedEventParticipantCert;
 window.previewEventDummy = previewEventDummy;
+window.createEventFromForm = createEventFromForm;
