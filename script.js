@@ -72,6 +72,36 @@ function handleLogoSecretClick() {
 }
 
 // ===== EVENT HELPERS =====
+function normalizeEventName(name) {
+  if (!name) return '';
+  return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findEventForParticipant(p) {
+  if (!p) return null;
+  // 1. By ID
+  if (p.eventId) {
+    const found = state.events.find(e => e.id === p.eventId);
+    if (found) return found;
+  }
+  // 2. By Exact Name
+  if (p.eventName) {
+    const pTrim = p.eventName.trim().toLowerCase();
+    const found = state.events.find(e => (e.name || '').trim().toLowerCase() === pTrim);
+    if (found) return found;
+  }
+  // 3. By Normalized / Fuzzy Name (misal 'WorkshopUiUX' vs 'Workshop UI/UX Design')
+  if (p.eventName) {
+    const pNorm = normalizeEventName(p.eventName);
+    const found = state.events.find(e => {
+      const eNorm = normalizeEventName(e.name);
+      return eNorm === pNorm || (pNorm.length > 3 && (eNorm.includes(pNorm) || pNorm.includes(eNorm)));
+    });
+    if (found) return found;
+  }
+  return null;
+}
+
 function getActiveEvent() {
   if (state.activeEventId) {
     const found = state.events.find(e => e.id === state.activeEventId);
@@ -81,6 +111,14 @@ function getActiveEvent() {
 }
 
 function onSwitchEvent(eventId) {
+  if (eventId === '__NEW_EVENT__') {
+    showAddEventModal();
+    const active = getActiveEvent();
+    const eventSelect = document.getElementById('event-select');
+    if (eventSelect && active) eventSelect.value = active.id;
+    return;
+  }
+
   state.activeEventId = eventId;
   const ev = getActiveEvent();
   if (!ev) return;
@@ -125,10 +163,12 @@ function renderEventPills() {
   container.innerHTML = state.events.map(e => {
     const count = state.participants.filter(p => p.eventId === e.id).length;
     const isActive = active && active.id === e.id;
+    const hasTpl = !!e.template_url;
     return `
-      <button class="event-pill ${isActive ? 'active' : ''}" onclick="onSwitchEvent('${e.id}')" title="${escapeHtml(e.name)}">
+      <button class="event-pill ${isActive ? 'active' : ''}" onclick="onSwitchEvent('${e.id}')" title="${escapeHtml(e.name)}${hasTpl ? ' (Template HD Siap)' : ' (Belum ada template)'}">
         <span>${escapeHtml(e.name)}</span>
         <span class="badge-counter">${count}</span>
+        ${hasTpl ? '<span style="font-size:11px; margin-left:2px;" title="Template HD Siap">🖼️</span>' : ''}
       </button>
     `;
   }).join('');
@@ -187,9 +227,11 @@ function renderEventDropdowns() {
   if (eventSelect) {
     eventSelect.innerHTML = evs.map(e => `
       <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
-        ${escapeHtml(e.name)} ${e.date ? '(' + e.date + ')' : ''}
+        ${escapeHtml(e.name)} ${e.date ? '(' + e.date + ')' : ''} ${e.template_url ? '✓' : '(tanpa template)'}
       </option>
-    `).join('');
+    `).join('') + `
+      <option value="__NEW_EVENT__" style="font-weight:700; color:var(--primary);">➕ + Buat Acara Baru...</option>
+    `;
   }
 
   // 2. Selector di Tab Upload Peserta
@@ -350,8 +392,11 @@ async function createEvent() {
         positions: initialPos
       }).select();
 
-      if (error) throw error;
-      created = (Array.isArray(data) && data.length > 0) ? data[0] : data;
+      if (error) {
+        console.warn('Supabase insert warning, creating local event:', error);
+      } else if (data && data.length > 0) {
+        created = data[0];
+      }
     }
 
     if (!created) {
@@ -373,11 +418,12 @@ async function createEvent() {
 
     if (sb) {
       await loadEvents();
-    } else {
-      renderEventDropdowns();
-      renderEventPills();
+      // Pastikan activeEventId tetap acara yang baru dibuat
+      state.activeEventId = created.id;
     }
 
+    renderEventDropdowns();
+    renderEventPills();
     onSwitchEvent(created.id);
     renderDashboard();
 
@@ -387,6 +433,13 @@ async function createEvent() {
 
     // Bersihkan form
     if (nameInput) nameInput.value = '';
+
+    const msg = document.getElementById('tpl-settings-msg');
+    if (msg) {
+      msg.textContent = `Acara "${name}" berhasil dibuat! Silakan unggah gambar template sertifikat di bawah.`;
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 4000);
+    }
 
   } catch (e) {
     console.error('Gagal membuat acara:', e);
@@ -447,16 +500,18 @@ async function deleteEventById(id) {
 
 // ===== SINKRONISASI DATA SUPABASE =====
 async function syncData() {
-  await Promise.all([
-    loadEvents(),
-    loadParticipants(),
-    loadDownloads()
-  ]);
+  // Muat events terlebih dahulu agar daftar events lengkap saat mengaitkan data peserta
+  await loadEvents();
+  await loadParticipants();
+  await loadDownloads();
 
   // Setup Realtime Subscription
   if (sb) {
     sb.channel('certifynow-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { loadEvents(); loadParticipants(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, async () => {
+        await loadEvents();
+        await loadParticipants();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => loadParticipants())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'downloads' }, () => loadDownloads())
       .subscribe();
@@ -492,11 +547,13 @@ async function loadEvents() {
     }
 
     renderEventDropdowns();
+    renderEventPills();
+    renderEventParticipantDownloadSelect();
 
     const active = getActiveEvent();
     if (active) {
-      const nameEl = document.getElementById('event-name');
-      const dateEl = document.getElementById('event-date');
+      const nameEl = document.getElementById('tpl-event-name') || document.getElementById('event-name');
+      const dateEl = document.getElementById('tpl-event-date') || document.getElementById('event-date');
       if (nameEl) nameEl.value = active.name || '';
       if (dateEl) dateEl.value = active.date || '';
 
@@ -504,6 +561,12 @@ async function loadEvents() {
       state.settings.eventDate = active.date || '';
       state.settings.certificateTemplate = active.template_url || null;
       state.settings.positions = active.positions || state.settings.positions;
+
+      const dragEventEl = document.getElementById('drag-event');
+      if (dragEventEl) {
+        const dStr = active.date ? new Date(active.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        dragEventEl.textContent = `${active.name || 'Nama Kegiatan'}${dStr ? ' | ' + dStr : ''}`;
+      }
 
       setEditorTemplate(active.template_url);
       applyPositions();
@@ -519,10 +582,19 @@ async function loadParticipants() {
     const { data, error } = await sb.from('participants').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     state.participants = (data || []).map(r => {
+      // Cari kecocokan event berdasarkan event_id atau event_name
       let ev = state.events.find(e => e.id === r.event_id);
-      if (!ev && state.events.length > 0) {
+      if (!ev && r.event_name) {
+        ev = state.events.find(e => (e.name || '').trim().toLowerCase() === r.event_name.trim().toLowerCase());
+      }
+      if (!ev && r.event_name) {
+        const normR = normalizeEventName(r.event_name);
+        ev = state.events.find(e => normalizeEventName(e.name) === normR);
+      }
+      if (!ev && state.events.length > 0 && !r.event_id) {
         ev = state.events[0];
       }
+
       return {
         id: r.id,
         nama: r.nama,
@@ -788,23 +860,12 @@ function doSearch() {
     return { label: `Panitia · Sie ${titleCase}`, type: 'panitia' };
   }
 
-  // Helper: Nama kegiatan yang informatif dan tidak jatuh ke fallback mentah
+  // Helper: Nama kegiatan yang informatif dan tepat sesuai data peserta
   function getResolvedEventName(item) {
     if (item && item.eventName && item.eventName !== 'Acara') return item.eventName;
-    if (item && item.eventId) {
-      const ev = state.events.find(e => e.id === item.eventId);
-      if (ev && ev.name) return ev.name;
-    }
-    if (state.activeEventId) {
-      const ev = state.events.find(e => e.id === state.activeEventId);
-      if (ev && ev.name) return ev.name;
-    }
-    if (state.events && state.events.length > 0 && state.events[0].name) {
-      return state.events[0].name;
-    }
-    if (state.settings && state.settings.eventName) {
-      return state.settings.eventName;
-    }
+    const ev = findEventForParticipant(item);
+    if (ev && ev.name) return ev.name;
+    if (item && item.eventName) return item.eventName;
     return 'Kegiatan Resmi HIMASI UBSI';
   }
 
@@ -939,14 +1000,38 @@ function toggleMobileMenu() {
 // ===== DOWNLOAD / GENERATE CERT =====
 async function downloadCert(id) {
   const p = state.participants.find(x => x.id === id);
-  if (!p) return;
+  if (!p) {
+    alert('Data peserta tidak ditemukan.');
+    return;
+  }
 
-  const ev = state.events.find(e => e.id === p.eventId) || state.events[0] || {
-    name: p.eventName || 'Workshop',
-    date: '',
-    template_url: state.settings.certificateTemplate,
-    positions: state.settings.positions
-  };
+  // Cari event yang tepat untuk peserta ini
+  let ev = findEventForParticipant(p);
+  if (!ev) {
+    ev = {
+      id: p.eventId || 'unknown',
+      name: p.eventName || 'Acara',
+      date: '',
+      template_url: null,
+      positions: state.settings.positions
+    };
+  }
+
+  // Cek apakah template untuk acara ini sudah ada
+  let tpl = ev.template_url;
+  if (!tpl && ev.name) {
+    const norm = normalizeEventName(ev.name);
+    const sister = state.events.find(e => e.template_url && normalizeEventName(e.name) === norm);
+    if (sister) {
+      tpl = sister.template_url;
+      ev.template_url = tpl;
+    }
+  }
+
+  if (!tpl) {
+    alert(`Template sertifikat untuk acara "${ev.name}" belum diunggah oleh panitia. Silakan hubungi panitia pelaksana.`);
+    return;
+  }
 
   try {
     if (sb) {
@@ -976,9 +1061,17 @@ async function generatePDF(p, ev) {
   const W = 297, H = 210;
 
   const cfg = (ev && ev.positions) ? ev.positions : state.settings.positions;
-  const tpl = (ev && ev.template_url) ? ev.template_url : state.settings.certificateTemplate;
-  const eventName = (ev && ev.name) ? ev.name : state.settings.eventName;
-  const eventDate = (ev && ev.date) ? ev.date : state.settings.eventDate;
+
+  // Pastikan template KHUSUS acara ini, JANGAN pernah jatuh ke template acara lain yang terakhir diunggah!
+  let tpl = (ev && ev.template_url) ? ev.template_url : null;
+  if (!tpl && ev && ev.name) {
+    const norm = normalizeEventName(ev.name);
+    const sister = state.events.find(e => e.template_url && normalizeEventName(e.name) === norm);
+    if (sister) tpl = sister.template_url;
+  }
+
+  const eventName = (ev && ev.name) ? ev.name : (p && p.eventName ? p.eventName : 'Sertifikat');
+  const eventDate = (ev && ev.date) ? ev.date : '';
 
   // Render Background Template Gambar
   if (tpl) {
@@ -1004,7 +1097,7 @@ async function generatePDF(p, ev) {
       doc.rect(10, 10, W - 20, H - 20, 'S');
     }
   } else {
-    // Fallback jika tidak ada gambar template
+    // Fallback bersih jika benar-benar tidak ada template
     doc.setFillColor(250, 238, 218);
     doc.rect(0, 0, W, H, 'F');
     doc.setDrawColor(186, 117, 23); doc.setLineWidth(1.5);
@@ -1094,8 +1187,25 @@ async function processTemplateFile(file) {
     setEditorTemplate(publicUrl);
     state.settings.certificateTemplate = publicUrl;
 
+    // Pastikan item di state.events terupdate
+    const evInState = state.events.find(e => e.id === ev.id);
+    if (evInState) evInState.template_url = publicUrl;
+
+    // Sinkronkan ke sister event dengan nama mirip jika ada
+    const norm = normalizeEventName(ev.name);
+    state.events.forEach(e => {
+      if (normalizeEventName(e.name) === norm) {
+        e.template_url = publicUrl;
+        if (sb && e.id !== ev.id) {
+          sb.from('events').update({ template_url: publicUrl }).eq('id', e.id).then();
+        }
+      }
+    });
+
     showMsg('template-msg', 'success', `Template HD untuk "${ev.name}" berhasil disimpan tanpa kompresi!`);
     requestAnimationFrame(() => applyPositions());
+    renderEventPills();
+    renderEventDropdowns();
     renderDashboard();
   } catch (err) {
     console.error('Gagal mengunggah template:', err);
