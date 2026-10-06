@@ -53,10 +53,15 @@ function onSwitchEvent(eventId) {
   const ev = getActiveEvent();
   if (!ev) return;
 
-  const nameEl = document.getElementById('event-name');
-  const dateEl = document.getElementById('event-date');
+  const nameEl = document.getElementById('tpl-event-name') || document.getElementById('event-name');
+  const dateEl = document.getElementById('tpl-event-date') || document.getElementById('event-date');
   if (nameEl) nameEl.value = ev.name || '';
   if (dateEl) dateEl.value = ev.date || '';
+
+  const eventSelect = document.getElementById('event-select');
+  if (eventSelect && eventSelect.value !== ev.id) {
+    eventSelect.value = ev.id;
+  }
 
   state.settings.eventName = ev.name || '';
   state.settings.eventDate = ev.date || '';
@@ -65,7 +70,7 @@ function onSwitchEvent(eventId) {
     name: { x: 148, y: 105, size: 32 },
     role: { x: 148, y: 132, size: 18 },
     event: { x: 148, y: 155, size: 12 },
-    color: '#30338A'
+    color: '#1E255E'
   };
 
   setEditorTemplate(ev.template_url);
@@ -83,7 +88,7 @@ function renderEventDropdowns() {
   if (eventSelect) {
     eventSelect.innerHTML = evs.map(e => `
       <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
-        ${e.name} ${e.date ? '(' + e.date + ')' : ''}
+        ${escapeHtml(e.name)} ${e.date ? '(' + e.date + ')' : ''}
       </option>
     `).join('');
   }
@@ -93,7 +98,7 @@ function renderEventDropdowns() {
   if (uploadSelect) {
     uploadSelect.innerHTML = evs.map(e => `
       <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
-        ${e.name}
+        ${escapeHtml(e.name)}
       </option>
     `).join('');
   }
@@ -104,7 +109,7 @@ function renderEventDropdowns() {
     const currentVal = filterSelect.value;
     filterSelect.innerHTML = '<option value="">Semua Acara</option>' + evs.map(e => `
       <option value="${e.id}" ${currentVal === e.id ? 'selected' : ''}>
-        ${e.name}
+        ${escapeHtml(e.name)}
       </option>
     `).join('');
   }
@@ -114,28 +119,48 @@ function renderEventDropdowns() {
   if (modalSelect) {
     modalSelect.innerHTML = evs.map(e => `
       <option value="${e.id}" ${active && active.id === e.id ? 'selected' : ''}>
-        ${e.name}
+        ${escapeHtml(e.name)}
       </option>
     `).join('');
   }
 }
 
 function showAddEventModal() {
-  document.getElementById('new-event-name').value = '';
-  document.getElementById('new-event-date').value = '';
-  document.getElementById('modal-event-error').style.display = 'none';
-  document.getElementById('modal-add-event').style.display = 'flex';
+  const nameInput = document.getElementById('new-event-name');
+  const dateInput = document.getElementById('new-event-date');
+  const err = document.getElementById('modal-event-error');
+  if (nameInput) nameInput.value = '';
+  if (dateInput) {
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+  }
+  if (err) err.style.display = 'none';
+  const modal = document.getElementById('modal-add-event');
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
 }
 
 async function createEvent() {
-  const name = document.getElementById('new-event-name').value.trim();
-  const date = document.getElementById('new-event-date').value;
+  const nameInput = document.getElementById('new-event-name');
+  const dateInput = document.getElementById('new-event-date');
   const err = document.getElementById('modal-event-error');
+  const submitBtn = document.getElementById('btn-submit-create-event');
+
+  const name = nameInput ? nameInput.value.trim() : '';
+  const date = dateInput ? dateInput.value.trim() : '';
 
   if (!name) {
-    err.textContent = 'Nama kegiatan tidak boleh kosong.';
-    err.style.display = 'block';
+    if (err) {
+      err.textContent = 'Nama kegiatan / acara tidak boleh kosong.';
+      err.style.display = 'block';
+    }
+    if (nameInput) nameInput.focus();
     return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Membuat Acara...';
   }
 
   try {
@@ -143,25 +168,39 @@ async function createEvent() {
       name: { x: 148, y: 105, size: 32 },
       role: { x: 148, y: 132, size: 18 },
       event: { x: 148, y: 155, size: 12 },
-      color: '#30338A'
+      color: '#1E255E'
     };
+
+    const cleanDate = (date && date.trim()) ? date.trim() : null;
 
     const { data, error } = await sb.from('events').insert({
       name,
-      date,
+      date: cleanDate,
       positions: initialPos
-    }).select().single();
+    }).select();
 
     if (error) throw error;
     closeModal();
     await loadEvents();
-    if (data && data.id) {
-      onSwitchEvent(data.id);
+    const newEvent = (Array.isArray(data) && data.length > 0) ? data[0] : data;
+    if (newEvent && newEvent.id) {
+      onSwitchEvent(newEvent.id);
     }
+    const tabBtn = document.querySelector('.nav-item[data-tab="template"]');
+    if (tabBtn) showTab('template', tabBtn);
   } catch (e) {
     console.error(e);
-    err.textContent = 'Gagal membuat acara: ' + (e.message || e);
-    err.style.display = 'block';
+    if (err) {
+      err.textContent = 'Gagal membuat acara: ' + (e.message || e);
+      err.style.display = 'block';
+    } else {
+      alert('Gagal membuat acara: ' + (e.message || e));
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Buat Acara';
+    }
   }
 }
 
@@ -169,11 +208,11 @@ async function deleteActiveEvent() {
   const ev = getActiveEvent();
   if (!ev) return;
   if (state.events.length <= 1) {
-    alert('Minimal harus ada 1 acara. Tidak bisa menghapus semua acara.');
+    alert('Minimal harus ada 1 acara terdaftar di sistem. Tidak bisa menghapus semua acara.');
     return;
   }
 
-  if (!confirm(`Apakah Anda yakin ingin menghapus acara "${ev.name}"? Data peserta yang terdaftar pada acara ini juga akan terhapus.`)) return;
+  if (!confirm(`Apakah Anda yakin ingin menghapus acara "${ev.name}"? Semua data peserta pada acara ini juga akan terhapus.`)) return;
 
   try {
     const { error } = await sb.from('events').delete().eq('id', ev.id);
@@ -364,15 +403,38 @@ function doLogout() {
   showPage('public');
 }
 
+// ===== HELPER: ESCAPE HTML =====
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ===== PUBLIC SEARCH =====
 function doSearch() {
   const q = (document.getElementById('pub-search').value || '').trim().toLowerCase();
   const area = document.getElementById('result-area');
+  if (!area) return;
   if (!q) { area.innerHTML = ''; return; }
 
   const matches = state.participants.filter(p => p.nama.toLowerCase().includes(q));
   if (matches.length === 0) {
-    area.innerHTML = `<div class="not-found">😔 Nama tidak ditemukan. Pastikan nama sesuai dengan saat pendaftaran.</div>`;
+    area.innerHTML = `
+      <div class="search-empty-card">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+          </svg>
+        </div>
+        <h4>Nama Tidak Ditemukan</h4>
+        <p>Pastikan nama yang Anda ketik sesuai dengan ejaan saat pendaftaran. Jika data belum terdaftar, silakan konfirmasi ke panitia pelaksana kegiatan.</p>
+      </div>`;
     return;
   }
 
@@ -387,34 +449,83 @@ function doSearch() {
   area.innerHTML = Object.entries(groups).map(([name, items], gIdx) => {
     const isMulti = items.length > 1;
     return `
-    <div class="result-card" style="margin-bottom:16px;">
-      <span class="badge badge-green">✓ Data Ditemukan</span>
-      <div class="r-name">${name}</div>
-      ${isMulti ? `
-        <div style="margin:12px 0 6px; font-size:13px; font-weight:600; color:var(--text)">
-          Terdaftar di ${items.length} Kegiatan (Pilih sertifikat):
+    <div class="pub-result-card">
+      <div class="result-header">
+        <div class="res-badge-wrap">
+          <span class="badge badge-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><polyline points="20 6 9 17 4 12"/></svg>
+            Data Terverifikasi Resmi
+          </span>
+          ${isMulti ? `<span class="badge badge-blue">${items.length} Sertifikat Tersedia</span>` : ''}
         </div>
-        <select class="input" id="pub-sel-${gIdx}" style="margin-bottom:14px; font-weight:500;">
-          ${items.map(it => `
-            <option value="${it.id}">
-              ${it.eventName || 'Acara'} — Sebagai: ${it.peran}
-            </option>
-          `).join('')}
-        </select>
-        <button class="btn btn-primary" onclick="downloadCert(document.getElementById('pub-sel-${gIdx}').value)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Unduh Sertifikat
-        </button>
+        <h3 class="res-participant-name">${escapeHtml(name)}</h3>
+      </div>
+
+      ${isMulti ? `
+        <div class="multi-event-container">
+          <label class="label" style="font-size:12.5px; margin-bottom:6px;">
+            Pilih Sertifikat Kegiatan yang Ingin Diunduh:
+          </label>
+          <div class="select-wrap">
+            <select class="input res-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
+              ${items.map((it, idx) => `
+                <option value="${it.id}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(it.eventName || 'Acara')}" ${idx === 0 ? 'selected' : ''}>
+                  ${escapeHtml(it.eventName || 'Acara')} · Sebagai ${escapeHtml(it.peran)}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div class="event-meta-card">
+            <div class="meta-row">
+              <span class="meta-label">Kegiatan</span>
+              <span class="meta-val" id="pub-meta-event-${gIdx}">${escapeHtml(items[0].eventName || 'Kegiatan')}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Peran</span>
+              <span class="meta-val"><span class="badge badge-gold" id="pub-meta-role-${gIdx}">${escapeHtml(items[0].peran)}</span></span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block btn-lg" onclick="downloadCert(document.getElementById('pub-sel-${gIdx}').value)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Unduh E-Sertifikat (PDF HD)
+          </button>
+        </div>
       ` : `
-        <div class="r-role" style="margin-bottom:4px;">Acara: <strong>${items[0].eventName || 'Kegiatan'}</strong></div>
-        <div class="r-status" style="margin-bottom:14px;">Status: Terdaftar sebagai ${items[0].peran}</div>
-        <button class="btn btn-primary" onclick="downloadCert('${items[0].id}')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Unduh Sertifikat
-        </button>
+        <div class="single-event-container">
+          <div class="event-meta-card">
+            <div class="meta-row">
+              <span class="meta-label">Kegiatan</span>
+              <span class="meta-val">${escapeHtml(items[0].eventName || 'Kegiatan')}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Status / Peran</span>
+              <span class="meta-val"><span class="badge badge-gold">${escapeHtml(items[0].peran)}</span></span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block btn-lg" onclick="downloadCert('${items[0].id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Unduh E-Sertifikat (PDF HD)
+          </button>
+        </div>
       `}
     </div>`;
   }).join('');
+}
+
+function onSelectPubEvent(gIdx) {
+  const sel = document.getElementById('pub-sel-' + gIdx);
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  const role = opt.getAttribute('data-role');
+  const evName = opt.getAttribute('data-event');
+  const roleEl = document.getElementById('pub-meta-role-' + gIdx);
+  const evEl = document.getElementById('pub-meta-event-' + gIdx);
+  if (roleEl) roleEl.textContent = role || '';
+  if (evEl) evEl.textContent = evName || '';
 }
 
 function updatePublicStats() {
@@ -912,35 +1023,39 @@ async function saveSettings() {
   const ev = getActiveEvent();
   if (!ev) { alert('Pilih acara terlebih dahulu.'); return; }
 
-  const eventName = document.getElementById('event-name').value.trim();
-  const eventDate = document.getElementById('event-date').value;
+  const nameEl = document.getElementById('tpl-event-name') || document.getElementById('event-name');
+  const dateEl = document.getElementById('tpl-event-date') || document.getElementById('event-date');
+  const eventName = (nameEl ? nameEl.value : '').trim();
+  const eventDate = dateEl ? dateEl.value : '';
 
   if (!eventName) {
     alert('Nama kegiatan tidak boleh kosong.');
+    if (nameEl) nameEl.focus();
     return;
   }
 
   try {
+    const cleanDate = (eventDate && eventDate.trim()) ? eventDate.trim() : null;
     const { error } = await sb.from("events").update({
       name: eventName,
-      date: eventDate
+      date: cleanDate
     }).eq('id', ev.id);
 
     if (error) throw error;
 
     ev.name = eventName;
-    ev.date = eventDate;
+    ev.date = cleanDate;
     state.settings.eventName = eventName;
-    state.settings.eventDate = eventDate;
+    state.settings.eventDate = cleanDate;
 
     renderEventDropdowns();
     const sel = document.getElementById('event-select');
     if (sel) sel.value = ev.id;
 
-    const msg = document.getElementById('settings-msg');
+    const msg = document.getElementById('tpl-settings-msg') || document.getElementById('settings-msg');
     if (msg) {
       msg.style.display = 'block';
-      setTimeout(() => msg.style.display = 'none', 2500);
+      setTimeout(() => msg.style.display = 'none', 3000);
     }
     updatePublicStats();
     renderDashboard();
@@ -1085,6 +1200,9 @@ function closeModal() {
   if (modalPeserta) modalPeserta.style.display = 'none';
   if (modalDelete) modalDelete.style.display = 'none';
   if (modalAddEvent) modalAddEvent.style.display = 'none';
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.style.display = 'none';
+  });
 }
 
 // ===== DASHBOARD =====
@@ -1220,3 +1338,30 @@ function checkRoute() {
 window.addEventListener('load', checkRoute);
 window.addEventListener('hashchange', checkRoute);
 checkRoute();
+
+// ===== GLOBAL EXPORTS TO WINDOW =====
+window.showPage = showPage;
+window.showTab = showTab;
+window.doLogin = doLogin;
+window.doLogout = doLogout;
+window.doSearch = doSearch;
+window.downloadCert = downloadCert;
+window.onSelectPubEvent = onSelectPubEvent;
+window.showAddEventModal = showAddEventModal;
+window.createEvent = createEvent;
+window.deleteActiveEvent = deleteActiveEvent;
+window.onSwitchEvent = onSwitchEvent;
+window.saveSettings = saveSettings;
+window.savePositions = savePositions;
+window.handleTemplate = handleTemplate;
+window.showAddModal = showAddModal;
+window.editPeserta = editPeserta;
+window.deletePeserta = deletePeserta;
+window.confirmDelete = confirmDelete;
+window.savePeserta = savePeserta;
+window.closeModal = closeModal;
+window.handleExcel = handleExcel;
+window.importData = importData;
+window.renderPesertaTable = renderPesertaTable;
+window.clearDownloads = clearDownloads;
+window.updateEditorStyle = updateEditorStyle;
