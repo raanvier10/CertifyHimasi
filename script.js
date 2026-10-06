@@ -1,7 +1,7 @@
 // Supabase Client Configuration
 const SUPABASE_URL = "https://xzdkthtqemwjeetthged.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_ySOjaWeHsWHIGNSSF8V59w_zwVGvOJu";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 // ===== STATE =====
 let state = {
@@ -26,10 +26,12 @@ let state = {
 // ===== NAV =====
 function showPage(p) {
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
-  document.getElementById('page-' + p).classList.add('active');
+  const target = document.getElementById('page-' + p);
+  if (target) target.classList.add('active');
   if (p === 'public') updatePublicStats();
   if (p === 'admin') { renderDashboard(); renderPesertaTable(); renderStat(); }
 }
+window.showPage = showPage;
 
 // ===== SINKRONISASI DATA SUPABASE =====
 async function syncData() {
@@ -40,16 +42,19 @@ async function syncData() {
   ]);
 
   // Setup Realtime Subscription
-  supabase.channel('certifynow-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => loadSettings())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => loadParticipants())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'downloads' }, () => loadDownloads())
-    .subscribe();
+  if (sb) {
+    sb.channel('certifynow-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => loadSettings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => loadParticipants())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'downloads' }, () => loadDownloads())
+      .subscribe();
+  }
 }
 
 async function loadSettings() {
+  if (!sb) return;
   try {
-    const { data, error } = await supabase.from('settings').select('*').eq('id', 'main').single();
+    const { data, error } = await sb.from('settings').select('*').eq('id', 'main').single();
     if (error && error.code !== 'PGRST116') throw error;
     if (data) {
       state.settings = {
@@ -78,8 +83,9 @@ async function loadSettings() {
 }
 
 async function loadParticipants() {
+  if (!sb) return;
   try {
-    const { data, error } = await supabase.from('participants').select('*').order('created_at', { ascending: false });
+    const { data, error } = await sb.from('participants').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     state.participants = (data || []).map(r => ({
       id: r.id,
@@ -99,8 +105,9 @@ async function loadParticipants() {
 }
 
 async function loadDownloads() {
+  if (!sb) return;
   try {
-    const { data, error } = await supabase.from('downloads').select('*').order('download_date', { ascending: false }).limit(50);
+    const { data, error } = await sb.from('downloads').select('*').order('download_date', { ascending: false }).limit(50);
     if (error) throw error;
     state.downloads = (data || []).map(r => ({
       id: r.id,
@@ -206,15 +213,17 @@ async function downloadCert(id) {
   if (!p) return;
 
   try {
-    await supabase.from("downloads").insert({
-      participant_id: id,
-      participant_name: p.nama,
-      peran: p.peran,
-      download_date: new Date().toISOString()
-    });
+    if (sb) {
+      await sb.from("downloads").insert({
+        participant_id: id,
+        participant_name: p.nama,
+        peran: p.peran,
+        download_date: new Date().toISOString()
+      });
 
-    await supabase.rpc('increment_download', { row_id: id });
-    loadDownloads();
+      await sb.rpc('increment_download', { row_id: id });
+      loadDownloads();
+    }
   } catch (err) {
     console.error("Gagal mencatat download:", err);
   }
@@ -317,14 +326,14 @@ async function processTemplateFile(file) {
     const fileName = `template_${Date.now()}.${ext}`;
     
     // Unggah file asli langsung ke Supabase Storage (Bebas limit 1 MB!)
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await sb.storage
       .from('certificates')
       .upload(fileName, file, { cacheControl: '3600', upsert: true });
 
     if (uploadError) throw uploadError;
 
     // Dapatkan URL publik gambar
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = sb.storage
       .from('certificates')
       .getPublicUrl(fileName);
 
@@ -333,7 +342,7 @@ async function processTemplateFile(file) {
     state.settings.certificateTemplate = publicUrl;
 
     // Simpan link URL ke tabel settings di database
-    const { error: updateError } = await supabase
+    const { error: updateError } = await sb
       .from('settings')
       .update({ certificate_template: publicUrl })
       .eq('id', 'main');
@@ -560,7 +569,7 @@ async function savePositions() {
 
   try {
     state.settings.positions = newPositions;
-    const { error } = await supabase.from("settings").update({
+    const { error } = await sb.from("settings").update({
       positions: newPositions
     }).eq('id', 'main');
 
@@ -647,7 +656,7 @@ async function importData() {
     // Insert batch ke Supabase (maks 200 baris per request)
     for (let i = 0; i < rows.length; i += 200) {
       const chunk = rows.slice(i, i + 200);
-      const { error } = await supabase.from("participants").insert(chunk);
+      const { error } = await sb.from("participants").insert(chunk);
       if (error) throw error;
     }
     
@@ -667,7 +676,7 @@ async function saveSettings() {
   const eventDate = document.getElementById('event-date').value;
   
   try {
-    const { error } = await supabase.from("settings").update({
+    const { error } = await sb.from("settings").update({
       event_name: eventName,
       event_date: eventDate,
       positions: state.settings.positions,
@@ -741,10 +750,10 @@ async function savePeserta() {
   
   try {
     if (id) {
-      const { error } = await supabase.from("participants").update({ nama, peran }).eq('id', id);
+      const { error } = await sb.from("participants").update({ nama, peran }).eq('id', id);
       if (error) throw error;
     } else {
-      const { error } = await supabase.from("participants").insert({
+      const { error } = await sb.from("participants").insert({
         nama,
         peran,
         download_count: 0
@@ -771,7 +780,7 @@ function deletePeserta(id) {
 async function confirmDelete() {
   if (state.deleteId) {
     try {
-      const { error } = await supabase.from("participants").delete().eq('id', state.deleteId);
+      const { error } = await sb.from("participants").delete().eq('id', state.deleteId);
       if (error) throw error;
       state.deleteId = null;
       await loadParticipants();
@@ -831,10 +840,10 @@ async function clearDownloads() {
   if (!confirm('Hapus semua riwayat download?')) return;
 
   try {
-    const { error: dlErr } = await supabase.from("downloads").delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error: dlErr } = await sb.from("downloads").delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (dlErr) throw dlErr;
 
-    const { error: pErr } = await supabase.from("participants").update({ download_count: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error: pErr } = await sb.from("participants").update({ download_count: 0 }).neq('id', '00000000-0000-0000-0000-000000000000');
     if (pErr) throw pErr;
 
     await Promise.all([loadDownloads(), loadParticipants()]);
