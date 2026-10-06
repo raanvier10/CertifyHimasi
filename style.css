@@ -5,6 +5,10 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
+html {
+  scroll-behavior: smooth;
+}
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -410,10 +414,17 @@ body {
 
 /* Hero Section */
 .hero {
-  padding: 72px 24px 60px;
+  min-height: calc(100vh - 68px);
+  min-height: calc(100dvh - 68px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 24px;
   text-align: center;
-  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  background: radial-gradient(circle at 50% 30%, rgba(30, 37, 94, 0.04) 0%, transparent 70%), linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
   border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
 }
 
 .hero-tag {
@@ -437,7 +448,8 @@ body {
   color: var(--text-main);
   letter-spacing: -0.8px;
   line-height: 1.2;
-  max-width: 720px;
+  max-width: 740px;
+  width: 100%;
   margin: 0 auto 16px;
 }
 
@@ -450,14 +462,16 @@ body {
 .hero p {
   font-size: 16px;
   color: var(--text-muted);
-  max-width: 540px;
+  max-width: 560px;
+  width: 100%;
   margin: 0 auto 36px;
   line-height: 1.6;
 }
 
 /* Search Box */
 .search-box {
-  max-width: 600px;
+  width: 100%;
+  max-width: 620px;
   margin: 0 auto;
   background: #FFFFFF;
   border: 1.5px solid var(--border);
@@ -511,7 +525,8 @@ body {
 
 /* Result Area */
 .result-area {
-  max-width: 600px;
+  width: 100%;
+  max-width: 620px;
   margin: 28px auto 0;
   text-align: left;
 }
@@ -744,117 +759,7 @@ body {
   line-height: 1.6;
 }
 
-/* Features Grid */
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
 
-.feature-card {
-  background: var(--bg-page);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 32px 24px;
-  transition: all 0.2s;
-}
-
-.feature-card:hover {
-  border-color: var(--primary);
-  background: #FFFFFF;
-  box-shadow: var(--shadow-sm);
-}
-
-.feature-icon-box {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 18px;
-}
-
-.feature-card h3 {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 8px;
-}
-
-.feature-card p {
-  font-size: 14px;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
-/* FAQ Accordion */
-.faq-list {
-  max-width: 760px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.faq-item {
-  background: #FFFFFF;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  transition: border-color 0.15s;
-}
-
-.faq-item.open {
-  border-color: var(--primary-border);
-  box-shadow: var(--shadow-xs);
-}
-
-.faq-question {
-  padding: 18px 20px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-main);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  user-select: none;
-  background: transparent;
-  width: 100%;
-  border: none;
-  text-align: left;
-  font-family: var(--font-family);
-}
-
-.faq-question:hover {
-  color: var(--primary);
-}
-
-.faq-icon {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-
-.faq-item.open .faq-icon {
-  transform: rotate(180deg);
-  color: var(--primary);
-}
-
-.faq-answer {
-  padding: 0 20px 18px;
-  font-size: 14px;
-  color: var(--text-muted);
-  line-height: 1.6;
-  display: none;
-}
-
-.faq-item.open .faq-answer {
-  display: block;
-}
 
 /* Main Footer */
 .main-footer {
@@ -1575,7 +1480,7 @@ tr:hover td {
   .template-layout {
     grid-template-columns: 1fr;
   }
-  .steps-grid, .features-grid {
+  .steps-grid {
     grid-template-columns: repeat(2, 1fr);
   }
   .footer-grid {
@@ -1601,7 +1506,9 @@ tr:hover td {
     height: 60px;
   }
   .hero {
-    padding: 48px 16px 36px;
+    min-height: calc(100vh - 60px);
+    min-height: calc(100dvh - 60px);
+    padding: 36px 16px;
   }
   .hero h1 {
     font-size: 26px;
@@ -1612,7 +1519,7 @@ tr:hover td {
   .section-header-center h2 {
     font-size: 24px;
   }
-  .steps-grid, .features-grid {
+  .steps-grid {
     grid-template-columns: 1fr;
   }
   .footer-grid {

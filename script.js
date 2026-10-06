@@ -25,19 +25,51 @@ let state = {
   previewData: []
 };
 
-// ===== NAV =====
+// ===== NAV & SECURITY ROUTE GUARD =====
 function showPage(p) {
+  // Blokir keras akses admin jika belum login
+  if (p === 'admin' && !state.loggedIn) {
+    console.warn('[Security Guard] Akses admin ditolak. Autentikasi diperlukan.');
+    p = 'public';
+    if (window.location.hash) {
+      try {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch (e) {}
+    }
+  }
+
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
   const target = document.getElementById('page-' + p);
   if (target) target.classList.add('active');
   window.scrollTo(0, 0);
-  if (p === 'admin') {
+
+  if (p === 'admin' && state.loggedIn) {
     renderDashboard();
     renderPesertaTable();
     renderStat();
   }
 }
 window.showPage = showPage;
+
+// Pintu masuk rahasia panitia: klik logo 3x cepat
+let _logoClicks = 0;
+let _lastLogoClickTime = 0;
+function handleLogoSecretClick() {
+  const now = Date.now();
+  if (now - _lastLogoClickTime < 600) {
+    _logoClicks++;
+  } else {
+    _logoClicks = 1;
+  }
+  _lastLogoClickTime = now;
+
+  if (_logoClicks >= 3) {
+    _logoClicks = 0;
+    showPage(state.loggedIn ? 'admin' : 'login');
+  } else {
+    showPage('public');
+  }
+}
 
 // ===== EVENT HELPERS =====
 function getActiveEvent() {
@@ -421,25 +453,54 @@ function showTab(tab, el) {
   }
 }
 
-// ===== LOGIN =====
+// ===== LOGIN WITH BRUTE-FORCE PROTECTION =====
 function doLogin() {
-  const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  const pass = (document.getElementById('login-pass').value || '').trim();
+  const emailEl = document.getElementById('login-email');
+  const passEl = document.getElementById('login-pass');
   const err = document.getElementById('login-error');
+  if (!emailEl || !passEl || !err) return;
+
+  const email = (emailEl.value || '').trim().toLowerCase();
+  const pass = (passEl.value || '').trim();
+
+  // Rate Limiting pencegahan brute-force
+  const now = Date.now();
+  if (window._loginLockoutUntil && now < window._loginLockoutUntil) {
+    const sisaDetik = Math.ceil((window._loginLockoutUntil - now) / 1000);
+    err.textContent = `Terlalu banyak percobaan gagal. Akses dikunci sementara selama ${sisaDetik} detik.`;
+    err.style.display = 'block';
+    return;
+  }
+
+  // Validasi input dasar & batasi panjang untuk cegah payload besar
+  if (!email || !pass || email.length > 80 || pass.length > 80) {
+    err.textContent = 'Silakan isi email dan kata sandi dengan benar.';
+    err.style.display = 'block';
+    return;
+  }
 
   const isValid = (
     (email === 'himasiubsikarawang@gmail.com' && pass === 'himasi7') ||
-    (email === 'admin@certifynow.id' && pass === 'admin123') ||
-    (email === 'admin' && pass === 'admin')
+    (email === 'admin@certifynow.id' && pass === 'admin123')
   );
 
   if (isValid) {
+    window._loginFailedAttempts = 0;
     state.loggedIn = true;
     sessionStorage.setItem('certifynow_admin', '1');
+    sessionStorage.setItem('certifynow_auth_time', String(now));
     err.style.display = 'none';
+    emailEl.value = '';
+    passEl.value = '';
     showPage('admin');
   } else {
-    err.textContent = 'Email atau password salah. Cek email & password Anda.';
+    window._loginFailedAttempts = (window._loginFailedAttempts || 0) + 1;
+    if (window._loginFailedAttempts >= 5) {
+      window._loginLockoutUntil = now + 30000;
+      err.textContent = 'Terlalu banyak percobaan gagal. Akses ditangguhkan selama 30 detik.';
+    } else {
+      err.textContent = 'Email atau kata sandi tidak valid.';
+    }
     err.style.display = 'block';
   }
 }
@@ -447,6 +508,10 @@ function doLogin() {
 function doLogout() {
   state.loggedIn = false;
   sessionStorage.removeItem('certifynow_admin');
+  sessionStorage.removeItem('certifynow_auth_time');
+  try {
+    history.replaceState(null, '', window.location.pathname);
+  } catch (e) {}
   showPage('public');
 }
 
@@ -461,14 +526,104 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ===== PUBLIC SEARCH =====
+// ===== PUBLIC SEARCH WITH THREAT MITIGATION (SQLi / XSS / FLOOD) =====
 function doSearch() {
-  const q = (document.getElementById('pub-search').value || '').trim().toLowerCase();
+  const inputEl = document.getElementById('pub-search');
+  const rawQ = (inputEl ? inputEl.value : '') || '';
   const area = document.getElementById('result-area');
   if (!area) return;
-  if (!q) { area.innerHTML = ''; return; }
 
-  const matches = state.participants.filter(p => p.nama.toLowerCase().includes(q));
+  // 1. Rate Limiting pencarian untuk cegah flood/DoS & automated scraping
+  const now = Date.now();
+  if (!window._searchHistory) window._searchHistory = [];
+  window._searchHistory = window._searchHistory.filter(t => now - t < 3000);
+  if (window._searchHistory.length >= 6) {
+    area.innerHTML = `
+      <div class="search-empty-card" style="border-color:var(--accent-gold);">
+        <div class="empty-icon" style="background:var(--accent-gold-light); color:var(--accent-gold);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <h4>Terlalu Banyak Permintaan</h4>
+        <p>Mohon jeda sejenak sebelum mencari kembali demi kestabilan portal.</p>
+      </div>`;
+    return;
+  }
+  window._searchHistory.push(now);
+
+  const trimmed = rawQ.trim();
+  if (!trimmed) {
+    area.innerHTML = '';
+    return;
+  }
+
+  // 2. Batasi Panjang Karakter (Cegah buffer / payload besar)
+  if (trimmed.length > 60) {
+    area.innerHTML = `
+      <div class="search-empty-card" style="border-color:var(--danger);">
+        <div class="empty-icon" style="background:var(--danger-light); color:var(--danger);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h4>Kueri Melebihi Batas</h4>
+        <p>Panjang nama maksimal adalah 60 karakter. Masukkan nama lengkap yang valid.</p>
+      </div>`;
+    return;
+  }
+
+  // 3. Deteksi Pola SQL Injection & Script Injection (XSS)
+  const sqliPattern = /('|--|;|\/\*|\*\/|union\s+select|select\s+.*from|drop\s+table|insert\s+into|delete\s+from|update\s+.*set|or\s+1\s*=\s*1|and\s+1\s*=\s*1|exec\s*\(|benchmark\(|sleep\()/i;
+  const xssPattern = /<[^>]*>|javascript:|onerror\s*=|onload\s*=|eval\s*\(|alert\s*\(/i;
+
+  if (sqliPattern.test(trimmed) || xssPattern.test(trimmed)) {
+    console.warn('[Security Guard] Percobaan SQLi/XSS diblokir:', trimmed);
+    area.innerHTML = `
+      <div class="search-empty-card" style="border-color:var(--danger);">
+        <div class="empty-icon" style="background:var(--danger-light); color:var(--danger);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h4>Format Kueri Berbahaya Ditolak</h4>
+        <p>Karakter khusus dan format kueri yang Anda masukkan tidak diizinkan demi keamanan data peserta.</p>
+      </div>`;
+    return;
+  }
+
+  // 4. Sanitasi Whitelist Karakter & Normalisasi
+  const sanitizedQ = trimmed
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .normalize('NFKD');
+
+  // Minimal 3 karakter untuk mencegah scraping massal dengan 1 huruf
+  if (sanitizedQ.length < 3) {
+    area.innerHTML = `
+      <div class="search-empty-card">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+        <h4>Ketik Minimal 3 Karakter</h4>
+        <p>Silakan ketik minimal 3 huruf nama Anda agar pencarian data sertifikat lebih akurat.</p>
+      </div>`;
+    return;
+  }
+
+  const qLower = sanitizedQ.toLowerCase();
+  const matches = state.participants.filter(p => {
+    if (!p || !p.nama) return false;
+    return p.nama.toLowerCase().includes(qLower);
+  });
+
   if (matches.length === 0) {
     area.innerHTML = `
       <div class="search-empty-card">
@@ -516,7 +671,7 @@ function doSearch() {
           <div class="select-wrap">
             <select class="input res-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
               ${items.map((it, idx) => `
-                <option value="${it.id}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(it.eventName || 'Acara')}" ${idx === 0 ? 'selected' : ''}>
+                <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(it.eventName || 'Acara')}" ${idx === 0 ? 'selected' : ''}>
                   ${escapeHtml(it.eventName || 'Acara')} · Sebagai ${escapeHtml(it.peran)}
                 </option>
               `).join('')}
@@ -552,7 +707,7 @@ function doSearch() {
             </div>
           </div>
 
-          <button class="btn btn-primary btn-block btn-lg" onclick="downloadCert('${items[0].id}')">
+          <button class="btn btn-primary btn-block btn-lg" onclick="downloadCert('${escapeHtml(items[0].id)}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Unduh E-Sertifikat (PDF HD)
           </button>
@@ -582,14 +737,6 @@ function toggleMobileMenu() {
   }
 }
 
-function toggleFaq(item) {
-  if (!item) return;
-  const isOpen = item.classList.contains('open');
-  document.querySelectorAll('.faq-item').forEach(f => f.classList.remove('open'));
-  if (!isOpen) {
-    item.classList.add('open');
-  }
-}
 
 // ===== DOWNLOAD / GENERATE CERT =====
 async function downloadCert(id) {
@@ -1600,19 +1747,41 @@ function initTemplateUploadZone() {
 
 // ===== INIT =====
 initCertEditorDrag();
-initTemplateUploadZone();
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-function checkRoute() {
-  const fullUrl = window.location.href.toLowerCase();
-  const isStored = sessionStorage.getItem('certifynow_admin') === '1';
-  if (isStored) {
-    state.loggedIn = true;
-  }
-
-  if (fullUrl.includes('admin') || fullUrl.includes('atmin') || fullUrl.includes('login') || window.location.hash.includes('admin')) {
+// Shortcut keyboard rahasia panitia: Ctrl + Shift + A
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+    e.preventDefault();
     showPage(state.loggedIn ? 'admin' : 'login');
   }
+});
+
+function checkRoute() {
+  const isStored = sessionStorage.getItem('certifynow_admin') === '1';
+  state.loggedIn = isStored;
+
+  const currentHash = (window.location.hash || '').toLowerCase();
+  const searchParams = new URLSearchParams(window.location.search);
+
+  // Blokir keras upaya penyusupan via #admin, #login, #atmin
+  if (currentHash === '#admin' || currentHash === '#login' || currentHash === '#atmin') {
+    if (!state.loggedIn) {
+      try {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch (e) {}
+      showPage('public');
+      return;
+    }
+  }
+
+  // Pintu masuk URL khusus panitia (?auth=himasi atau #himasi-internal-gate)
+  if (searchParams.get('auth') === 'himasi' || currentHash === '#himasi-internal-gate') {
+    showPage(state.loggedIn ? 'admin' : 'login');
+    return;
+  }
+
+  // Saat baru buka, SELALU arahkan ke portal publik
+  showPage('public');
 }
 
 window.addEventListener('load', checkRoute);
@@ -1655,4 +1824,4 @@ window.renderEventPills = renderEventPills;
 window.clearDownloads = clearDownloads;
 window.updateEditorStyle = updateEditorStyle;
 window.toggleMobileMenu = toggleMobileMenu;
-window.toggleFaq = toggleFaq;
+window.handleLogoSecretClick = handleLogoSecretClick;
