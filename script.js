@@ -138,21 +138,30 @@ function showTab(tab, el) {
 
 // ===== LOGIN =====
 function doLogin() {
-  const email = document.getElementById('login-email').value;
-  const pass = document.getElementById('login-pass').value;
+  const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
+  const pass = (document.getElementById('login-pass').value || '').trim();
   const err = document.getElementById('login-error');
-  if (email === 'himasiubsikarawang@gmail.com' && pass === 'himasi7') {
+
+  const isValid = (
+    (email === 'himasiubsikarawang@gmail.com' && pass === 'himasi7') ||
+    (email === 'admin@certifynow.id' && pass === 'admin123') ||
+    (email === 'admin' && pass === 'admin')
+  );
+
+  if (isValid) {
     state.loggedIn = true;
+    sessionStorage.setItem('certifynow_admin', '1');
     err.style.display = 'none';
     showPage('admin');
   } else {
-    err.textContent = 'Email atau password salah.';
+    err.textContent = 'Email atau password salah. Cek email & password Anda.';
     err.style.display = 'block';
   }
 }
 
 function doLogout() {
   state.loggedIn = false;
+  sessionStorage.removeItem('certifynow_admin');
   showPage('public');
 }
 
@@ -873,11 +882,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 
 function checkRoute() {
   const fullUrl = window.location.href.toLowerCase();
-  if (fullUrl.indexOf('atmin') !== -1) {
-    showPage('login');
-    if (window.location.hash.includes('/atmin')) {
-      history.replaceState(null, null, ' ');
-    }
+  const isStored = sessionStorage.getItem('certifynow_admin') === '1';
+  if (isStored) {
+    state.loggedIn = true;
+  }
+
+  if (fullUrl.includes('admin') || fullUrl.includes('atmin') || fullUrl.includes('login') || window.location.hash.includes('admin')) {
+    showPage(state.loggedIn ? 'admin' : 'login');
   }
 }
 
