@@ -749,6 +749,89 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// ===== HELPER: FORMAT BADGE PERAN =====
+function formatRoleBadge(role) {
+  if (!role) return { label: 'Peserta Resmi', type: 'peserta' };
+  const r = String(role).trim();
+  if (!r) return { label: 'Peserta Resmi', type: 'peserta' };
+  const rLower = r.toLowerCase();
+
+  // 1. Peserta
+  if (rLower === 'peserta') return { label: 'Peserta Resmi', type: 'peserta' };
+
+  // 2. Pemateri, Narasumber, Speaker, Pembicara, Moderator, dll.
+  if (rLower === 'pemateri') return { label: 'Pemateri', type: 'pemateri' };
+  if (rLower === 'narasumber' || rLower === 'speaker' || rLower === 'pembicara') return { label: 'Narasumber', type: 'narasumber' };
+  if (rLower === 'moderator') return { label: 'Moderator Acara', type: 'moderator' };
+  if (rLower === 'fasilitator') return { label: 'Fasilitator', type: 'fasilitator' };
+  if (rLower === 'instruktur') return { label: 'Instruktur', type: 'instruktur' };
+  if (rLower === 'trainer') return { label: 'Trainer', type: 'trainer' };
+  if (rLower === 'mc' || rLower === 'master of ceremony') return { label: 'Master of Ceremony (MC)', type: 'mc' };
+  if (rLower === 'juri' || rLower === 'dewan juri') return { label: 'Dewan Juri', type: 'juri' };
+
+  // 3. Pimpinan Panitia / BPH
+  if (rLower === 'ketua pelaksana' || rLower === 'ketua panitia' || rLower === 'ketua' || rLower === 'ketupel') {
+    return { label: 'Ketua Pelaksana', type: 'panitia' };
+  }
+  if (rLower === 'wakil ketua' || rLower === 'wakil ketua pelaksana' || rLower === 'wakil ketua panitia') {
+    return { label: 'Wakil Ketua Pelaksana', type: 'panitia' };
+  }
+  if (rLower === 'sekretaris' || rLower === 'sekretaris pelaksana') {
+    return { label: 'Sekretaris Pelaksana', type: 'panitia' };
+  }
+  if (rLower === 'bendahara' || rLower === 'bendahara pelaksana') {
+    return { label: 'Bendahara Pelaksana', type: 'panitia' };
+  }
+  if (rLower === 'penanggung jawab' || rLower === 'pj') {
+    return { label: 'Penanggung Jawab', type: 'panitia' };
+  }
+  if (rLower === 'panitia' || rLower === 'panitia pelaksana') {
+    return { label: 'Panitia Pelaksana', type: 'panitia' };
+  }
+
+  // 4. Jika sudah memuat format Panitia
+  if (rLower.startsWith('panitia · ') || rLower.startsWith('panitia - ')) {
+    return { label: r, type: 'panitia' };
+  }
+
+  // 5. Jika diawali Sie / Divisi / Koordinator
+  if (rLower.startsWith('sie ') || rLower.startsWith('divisi ') || rLower.startsWith('koordinator ')) {
+    const formatted = r.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    return { label: `Panitia · ${formatted}`, type: 'panitia' };
+  }
+
+  // 6. Divisi umum kepanitiaan (acara, konsumsi, pubdok, humas, dll.)
+  const knownDivisions = [
+    'acara', 'konsumsi', 'pubdok', 'dokumentasi', 'publikasi', 'perlengkapan', 
+    'logistik', 'humas', 'keamanan', 'dekorasi', 'sponsorship', 'sponsor', 'ticketing', 
+    'tiket', 'kesekretariatan', 'medis', 'kestari', 'desain', 'multimedia', 'it', 'lapangan'
+  ];
+  if (knownDivisions.includes(rLower)) {
+    const titleCase = (rLower.length <= 4 && rLower !== 'it') 
+      ? r.toUpperCase() 
+      : (r.charAt(0).toUpperCase() + r.slice(1).toLowerCase());
+    return { label: `Panitia · Sie ${titleCase}`, type: 'panitia' };
+  }
+
+  // 7. Jika berupa singkatan seksi (misal DOK, PRK, dll. 2-4 huruf)
+  if (r.length <= 4 && /^[a-zA-Z]+$/.test(r) && rLower !== 'guru') {
+    return { label: `Panitia · Sie ${r.toUpperCase()}`, type: 'panitia' };
+  }
+
+  // 8. Peran kustom lainnya (misal Tamu Undangan, Dosen Pendamping)
+  const titleCase = r.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  return { label: titleCase, type: 'custom' };
+}
+
+// Helper: Nama kegiatan yang informatif dan tepat sesuai data peserta
+function getResolvedEventName(item) {
+  if (item && item.eventName && item.eventName !== 'Acara') return item.eventName;
+  const ev = findEventForParticipant(item);
+  if (ev && ev.name) return ev.name;
+  if (item && item.eventName) return item.eventName;
+  return 'Kegiatan Resmi HIMASI UBSI';
+}
+
 // ===== PUBLIC SEARCH WITH THREAT MITIGATION (SQLi / XSS / FLOOD) =====
 function doSearch() {
   const inputEl = document.getElementById('pub-search');
@@ -848,34 +931,6 @@ function doSearch() {
     return;
   }
 
-  // Helper: Format badge peran agar lebih profesional dan tidak mentah
-  function formatRoleBadge(role) {
-    if (!role) return { label: 'Peserta Resmi', type: 'peserta' };
-    const r = String(role).trim();
-    const rLower = r.toLowerCase();
-    if (rLower === 'peserta') return { label: 'Peserta Resmi', type: 'peserta' };
-    if (rLower === 'panitia') return { label: 'Panitia Pelaksana', type: 'panitia' };
-    if (rLower === 'narasumber' || rLower === 'speaker') return { label: 'Narasumber', type: 'narasumber' };
-    if (rLower === 'moderator') return { label: 'Moderator Acara', type: 'moderator' };
-    if (rLower.startsWith('sie ') || rLower.startsWith('divisi ')) {
-      return { label: `Panitia · ${r}`, type: 'panitia' };
-    }
-    if (r.length <= 4) {
-      return { label: `Panitia · Sie ${r.toUpperCase()}`, type: 'panitia' };
-    }
-    const titleCase = r.charAt(0).toUpperCase() + r.slice(1);
-    return { label: `Panitia · Sie ${titleCase}`, type: 'panitia' };
-  }
-
-  // Helper: Nama kegiatan yang informatif dan tepat sesuai data peserta
-  function getResolvedEventName(item) {
-    if (item && item.eventName && item.eventName !== 'Acara') return item.eventName;
-    const ev = findEventForParticipant(item);
-    if (ev && ev.name) return ev.name;
-    if (item && item.eventName) return item.eventName;
-    return 'Kegiatan Resmi HIMASI UBSI';
-  }
-
   // Kelompokkan hasil pencarian berdasarkan nama yang sama
   const groups = {};
   matches.forEach(m => {
@@ -921,12 +976,12 @@ function doSearch() {
           <div class="detail-item-val" id="pub-meta-event-${gIdx}">
             ${isMulti ? `
               <div class="credential-select-wrap">
-                <select class="credential-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})">
+                <select class="credential-event-select" id="pub-sel-${gIdx}" onchange="onSelectPubEvent(${gIdx})" oninput="onSelectPubEvent(${gIdx})">
                   ${items.map((it, idx) => {
                     const evN = getResolvedEventName(it);
                     const itCleanId = getCleanId(it);
                     return `
-                      <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran)}" data-event="${escapeHtml(evN)}" data-cid="CN-${itCleanId}" ${idx === 0 ? 'selected' : ''}>
+                      <option value="${escapeHtml(it.id)}" data-role="${escapeHtml(it.peran || '')}" data-event="${escapeHtml(evN)}" data-cid="CN-${itCleanId}" ${idx === 0 ? 'selected' : ''}>
                         ${escapeHtml(evN)}
                       </option>
                     `;
@@ -993,6 +1048,10 @@ function onSelectPubEvent(gIdx) {
   }
   if (cidEl && cid) {
     cidEl.textContent = cid;
+  }
+  const btn = document.getElementById('pub-btn-' + gIdx);
+  if (btn && opt.value) {
+    btn.setAttribute('onclick', `downloadCert('${opt.value}')`);
   }
 }
 
@@ -1902,7 +1961,7 @@ function renderPesertaTable() {
     const pRole = (p.peran || 'Peserta').toLowerCase();
     let badgeClass = 'badge-primary';
     if (pRole.includes('panitia')) badgeClass = 'badge-gold';
-    else if (pRole.includes('narasumber') || pRole.includes('moderator') || pRole.includes('pembicara')) badgeClass = 'badge-green';
+    else if (pRole.includes('narasumber') || pRole.includes('moderator') || pRole.includes('pembicara') || pRole.includes('pemateri')) badgeClass = 'badge-green';
 
     return `
 <tr>
@@ -2264,6 +2323,8 @@ window.showTab = showTab;
 window.doLogin = doLogin;
 window.doLogout = doLogout;
 window.doSearch = doSearch;
+window.formatRoleBadge = formatRoleBadge;
+window.getResolvedEventName = getResolvedEventName;
 window.downloadCert = downloadCert;
 window.onSelectPubEvent = onSelectPubEvent;
 window.showAddEventModal = showAddEventModal;
