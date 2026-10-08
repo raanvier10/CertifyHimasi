@@ -2088,13 +2088,196 @@ function closeModal() {
   const modalPeserta = document.getElementById('modal-peserta');
   const modalDelete = document.getElementById('modal-delete');
   const modalAddEvent = document.getElementById('modal-add-event');
+  const modalDeleteAll = document.getElementById('modal-delete-all-peserta');
   if (modalPeserta) modalPeserta.style.display = 'none';
   if (modalDelete) modalDelete.style.display = 'none';
   if (modalAddEvent) modalAddEvent.style.display = 'none';
+  if (modalDeleteAll) modalDeleteAll.style.display = 'none';
   document.querySelectorAll('.modal-overlay').forEach(m => {
     m.style.display = 'none';
   });
 }
+
+// ===== HAPUS SEMUA DATA PESERTA =====
+let _deleteAllTarget = 'all';
+
+function showDeleteAllPesertaModal() {
+  if (!state.participants || state.participants.length === 0) {
+    alert('Belum ada data peserta yang tersimpan di sistem.');
+    return;
+  }
+
+  const container = document.getElementById('delete-all-content');
+  const errEl = document.getElementById('modal-delete-all-error');
+  if (errEl) {
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+  }
+
+  const filterEventId = document.getElementById('filter-event-select')?.value || '';
+  const currentEvent = filterEventId ? state.events.find(e => e.id === filterEventId) : null;
+  const filteredList = filterEventId ? state.participants.filter(p => p.eventId === filterEventId) : [];
+
+  if (currentEvent && filteredList.length > 0) {
+    _deleteAllTarget = 'filtered';
+    container.innerHTML = `
+      <div style="background:var(--danger-light); border:1px solid var(--danger-border); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:700; color:var(--danger); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Peringatan: Tindakan ini permanen
+        </div>
+        <div style="font-size:12.5px; color:var(--danger); line-height:1.5;">
+          Data peserta yang dihapus tidak dapat dipulihkan kembali dari database.
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="label" style="margin-bottom:8px;">Pilih cakupan data yang ingin dihapus:</label>
+        
+        <label style="display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; cursor:pointer; background:var(--bg-surface);">
+          <input type="radio" name="delete_scope" value="filtered" checked onchange="_deleteAllTarget='filtered'" style="margin-top:3px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--text-main);">Hanya peserta di acara terpilih</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+              Acara: <strong>${escapeHtml(currentEvent.name)}</strong> (${filteredList.length} peserta)
+            </div>
+          </div>
+        </label>
+
+        <label style="display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; background:var(--bg-surface);">
+          <input type="radio" name="delete_scope" value="all" onchange="_deleteAllTarget='all'" style="margin-top:3px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--danger);">Hapus SEMUA peserta dari seluruh acara</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+              Total: <strong>${state.participants.length}</strong> seluruh data peserta
+            </div>
+          </div>
+        </label>
+      </div>
+    `;
+  } else {
+    _deleteAllTarget = 'all';
+    container.innerHTML = `
+      <div style="background:var(--danger-light); border:1px solid var(--danger-border); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:700; color:var(--danger); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Peringatan: Tindakan ini permanen
+        </div>
+        <div style="font-size:12.5px; color:var(--danger); line-height:1.5;">
+          Apakah Anda yakin ingin menghapus <strong>seluruh data peserta (${state.participants.length} data)</strong> dari database?
+        </div>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:0; line-height:1.5;">
+        Semua nama peserta, peran, dan riwayat terkait pada seluruh kegiatan HIMASI akan dihapus secara permanen.
+      </p>
+    `;
+  }
+
+  const btn = document.getElementById('btn-exec-delete-all');
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </svg>
+      Hapus Data Peserta
+    `;
+  }
+
+  const modal = document.getElementById('modal-delete-all-peserta');
+  if (modal) modal.style.display = 'flex';
+}
+
+async function confirmDeleteAllPeserta() {
+  const btn = document.getElementById('btn-exec-delete-all');
+  const errEl = document.getElementById('modal-delete-all-error');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sedang menghapus data...';
+  }
+  if (errEl) errEl.style.display = 'none';
+
+  const filterEventId = document.getElementById('filter-event-select')?.value || '';
+  const currentEvent = filterEventId ? state.events.find(e => e.id === filterEventId) : null;
+  const isFiltered = _deleteAllTarget === 'filtered' && currentEvent;
+
+  try {
+    let deletedCount = 0;
+
+    if (sb) {
+      if (isFiltered) {
+        const targetParticipants = state.participants.filter(p => p.eventId === currentEvent.id || (p.eventName && p.eventName.toLowerCase() === currentEvent.name.toLowerCase()));
+        const targetIds = targetParticipants.map(p => p.id);
+        deletedCount = targetIds.length;
+
+        if (targetIds.length > 0) {
+          // Bersihkan riwayat download peserta terkait terlebih dahulu
+          for (let i = 0; i < targetIds.length; i += 100) {
+            const chunk = targetIds.slice(i, i + 100);
+            try {
+              await sb.from("downloads").delete().in('participant_id', chunk);
+            } catch (e) {
+              console.warn("Notice download cleanup:", e);
+            }
+          }
+
+          // Hapus peserta berdasarkan batch ID
+          for (let i = 0; i < targetIds.length; i += 100) {
+            const chunk = targetIds.slice(i, i + 100);
+            const { error: pErr } = await sb.from("participants").delete().in('id', chunk);
+            if (pErr) throw pErr;
+          }
+        }
+      } else {
+        deletedCount = state.participants.length;
+
+        // Hapus seluruh peserta dari semua acara
+        try {
+          await sb.from("downloads").delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        } catch (e) {
+          console.warn("Notice download cleanup:", e);
+        }
+
+        const { error: pErr } = await sb.from("participants").delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (pErr) throw pErr;
+      }
+    } else {
+      // Local fallback jika tanpa Supabase
+      if (isFiltered) {
+        deletedCount = state.participants.filter(p => p.eventId === currentEvent.id).length;
+        state.participants = state.participants.filter(p => p.eventId !== currentEvent.id);
+      } else {
+        deletedCount = state.participants.length;
+        state.participants = [];
+        state.downloads = [];
+      }
+    }
+
+    await Promise.all([loadParticipants(), loadDownloads()]);
+    closeModal();
+
+    alert(isFiltered 
+      ? `Berhasil menghapus ${deletedCount} data peserta pada acara "${currentEvent.name}".` 
+      : `Berhasil menghapus ${deletedCount} data peserta dari seluruh kegiatan.`);
+  } catch (error) {
+    console.error("Gagal menghapus semua data peserta:", error);
+    if (errEl) {
+      errEl.textContent = "Gagal menghapus data: " + (error.message || error);
+      errEl.style.display = "block";
+    } else {
+      alert("Gagal menghapus data: " + (error.message || error));
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Hapus Data Peserta';
+    }
+  }
+}
+
+window.showDeleteAllPesertaModal = showDeleteAllPesertaModal;
+window.confirmDeleteAllPeserta = confirmDeleteAllPeserta;
 
 // ===== DASHBOARD EVENTS LIST & STATS =====
 function renderDashboardEventList() {

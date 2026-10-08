@@ -157,6 +157,18 @@ body {
   color: var(--text-main);
 }
 
+.btn-outline-danger {
+  background: #FFFFFF;
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.btn-outline-danger:hover {
+  background: var(--danger-light);
+  border-color: var(--danger);
+  color: var(--danger-hover);
+}
+
 .btn-danger {
   background: var(--danger);
   color: #FFFFFF;
