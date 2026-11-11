@@ -29,10 +29,10 @@ export default function Navbar() {
         if (data?.session?.user) {
           router.push("/admin/dashboard");
         } else {
-          router.push("/login");
+          router.push("/4dm1nH1m4s1");
         }
       } catch {
-        router.push("/login");
+        router.push("/4dm1nH1m4s1");
       }
     }
   };

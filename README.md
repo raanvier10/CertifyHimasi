@@ -152,7 +152,7 @@ CertifyHimasi/
         ├── layout.tsx             # Root layout & font Plus Jakarta Sans
         ├── globals.css            # Tailwind directives & styles
         ├── page.tsx               # Halaman Publik Pencarian & Unduh E-Sertifikat
-        ├── login/page.tsx         # Login admin terintegrasi Supabase Auth
+        ├── 4dm1nH1m4s1/page.tsx   # Login rahasia admin terintegrasi Supabase Auth
         └── admin/
             ├── layout.tsx         # Route guard autentikasi & sidebar layout
             ├── dashboard/page.tsx # Ringkasan statistik & kartu acara

@@ -40,11 +40,6 @@ export default function Footer() {
                   Panduan Ringkas
                 </Link>
               </li>
-              <li>
-                <Link href="/login" className="hover:text-white transition-colors text-xs text-slate-400">
-                  Panel Khusus Panitia
-                </Link>
-              </li>
             </ul>
           </div>
 

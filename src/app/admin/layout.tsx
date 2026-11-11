@@ -29,14 +29,14 @@ export default function AdminLayout({
         console.warn("Session check exception:", err);
       }
 
-      router.replace("/login");
+      router.replace("/4dm1nH1m4s1");
     }
 
     checkSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        router.replace("/login");
+        router.replace("/4dm1nH1m4s1");
       } else {
         setAuthorized(true);
         setAdminEmail(session.user.email || "Panitia HIMASI");
