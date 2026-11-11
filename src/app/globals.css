@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-jakarta: 'Plus Jakarta Sans', sans-serif;
+}
+
+body {
+  font-family: var(--font-jakarta);
+  background-color: #F8FAFC;
+  color: #334155;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Canvas Editor Interactive Styles */
+.cert-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 297 / 210;
+  background-color: #F1F5F9;
+  border: 2px dashed #CBD5E1;
+  border-radius: 12px;
+  overflow: hidden;
+  user-select: none;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
+}
+
+.draggable-element {
+  position: absolute;
+  cursor: grab;
+  padding: 4px 12px;
+  border: 1.5px dashed #2563EB;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  touch-action: none;
+  transition: box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.draggable-element:active {
+  cursor: grabbing;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+  border-color: #1D4ED8;
+}
+
