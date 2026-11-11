@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { Search, Download, Award, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 import { EventItem, ParticipantItem } from "@/types";
 import { getEvents, getParticipants, recordDownload } from "@/lib/supabase";
-import { validateSearchQuery, formatRoleBadge, normalizeEventName } from "@/lib/security";
+import { validateSearchQuery, formatRoleBadge, normalizeEventName, parseParticipantEventsAndRoles } from "@/lib/security";
 import { generateCertificatePDF } from "@/lib/pdf";
 
 export default function HomePage() {
@@ -54,7 +54,7 @@ export default function HomePage() {
       p.nama?.toLowerCase().includes(qLower)
     );
 
-    // Kelompokkan berdasarkan nama
+    // Kelompokkan berdasarkan nama peserta
     const grouped: Record<string, ParticipantItem[]> = {};
     const defaultSelected: Record<string, string> = {};
 
@@ -62,9 +62,31 @@ export default function HomePage() {
       const k = p.nama.trim();
       if (!grouped[k]) {
         grouped[k] = [];
-        defaultSelected[k] = p.id;
       }
-      grouped[k].push(p);
+
+      // Pecah multi-kegiatan dan multi-peran dalam 1 data peserta
+      const certEntries = parseParticipantEventsAndRoles(p.event_name, p.peran);
+      certEntries.forEach((entry, idx) => {
+        // Cari event id jika ada
+        const matchedEv = events.find(
+          (e) => normalizeEventName(e.name) === normalizeEventName(entry.eventName)
+        );
+
+        const item: ParticipantItem = {
+          id: `${p.id}__cert_${idx}`,
+          nama: p.nama,
+          peran: entry.role,
+          event_name: entry.eventName,
+          event_id: matchedEv ? matchedEv.id : p.event_id,
+          download_count: p.download_count,
+          created_at: p.created_at,
+        };
+
+        if (!defaultSelected[k]) {
+          defaultSelected[k] = item.id;
+        }
+        grouped[k].push(item);
+      });
     });
 
     setSearchResults(grouped);
@@ -97,13 +119,17 @@ export default function HomePage() {
         },
       };
 
+      const realId = participant.id.includes("__cert_")
+        ? participant.id.split("__cert_")[0]
+        : participant.id;
+
       await generateCertificatePDF(participant, activeEvent);
-      await recordDownload(participant, activeEvent);
+      await recordDownload({ ...participant, id: realId }, activeEvent);
 
       // Perbarui jumlah unduhan di state lokal
       setParticipants((prev) =>
         prev.map((item) =>
-          item.id === participant.id
+          item.id === realId
             ? { ...item, download_count: (item.download_count || 0) + 1 }
             : item
         )

@@ -45,6 +45,10 @@ export interface PreviewRow {
   eventName: string;
   valid: boolean;
   status: string;
+  actionType?: "new" | "update" | "skip" | "invalid";
+  existingId?: string;
+  mergedRoles?: string;
+  mergedEvents?: string;
 }
 
 export interface RoleBadgeInfo {

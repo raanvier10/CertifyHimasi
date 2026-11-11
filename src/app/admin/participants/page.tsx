@@ -16,7 +16,13 @@ import {
 import { EventItem, ParticipantItem } from "@/types";
 import { getEvents, getParticipants, supabase } from "@/lib/supabase";
 import { exportParticipantsToExcel } from "@/lib/excel";
-import { formatRoleBadge } from "@/lib/security";
+import {
+  formatRoleBadge,
+  normalizeEventName,
+  parseParticipantEventsAndRoles,
+  mergeParticipantEventAndRole,
+  isRoleMatchingFilter,
+} from "@/lib/security";
 import { generateCertificatePDF } from "@/lib/pdf";
 
 export default function ParticipantsPage() {
@@ -33,6 +39,7 @@ export default function ParticipantsPage() {
   const [nama, setNama] = useState("");
   const [peran, setPeran] = useState("Peserta");
   const [eventId, setEventId] = useState("");
+  const [customEventName, setCustomEventName] = useState("");
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<ParticipantItem | null>(null);
@@ -75,6 +82,7 @@ export default function ParticipantsPage() {
     setNama("");
     setPeran("Peserta");
     setEventId(events[0]?.id || "");
+    setCustomEventName("");
     setModalOpen(true);
   };
 
@@ -83,11 +91,15 @@ export default function ParticipantsPage() {
     setNama(p.nama);
     setPeran(p.peran);
     setEventId(p.event_id || events[0]?.id || "");
+    setCustomEventName(p.event_name || "");
     setModalOpen(true);
   };
 
   const handleSaveParticipant = async () => {
-    if (!nama.trim() || !peran.trim()) {
+    const trimmedNama = nama.trim();
+    const trimmedPeran = peran.trim();
+
+    if (!trimmedNama || !trimmedPeran) {
       alert("Nama dan peran wajib diisi.");
       return;
     }
@@ -98,36 +110,79 @@ export default function ParticipantsPage() {
     try {
       setIsSaving(true);
       if (editItem) {
-        // Edit existing
+        // Edit data peserta yang dipilih
+        const finalEventName = customEventName.trim() || eventName;
         const { error } = await supabase
           .from("participants")
           .update({
-            nama: nama.trim(),
-            peran: peran.trim(),
+            nama: trimmedNama,
+            peran: trimmedPeran,
             event_id: eventId || null,
-            event_name: eventName,
+            event_name: finalEventName,
           })
           .eq("id", editItem.id);
 
         if (error) throw error;
         setSuccessMsg("Data peserta berhasil diperbarui!");
       } else {
-        // Add new
-        const { error } = await supabase.from("participants").insert({
-          nama: nama.trim(),
-          peran: peran.trim(),
-          event_id: eventId || null,
-          event_name: eventName,
-          download_count: 0,
-        });
+        // Cek apakah peserta dengan nama ini sudah ada di database
+        const existing = participants.find(
+          (p) => p.nama.trim().toLowerCase() === trimmedNama.toLowerCase()
+        );
 
-        if (error) throw error;
-        setSuccessMsg("Peserta baru berhasil ditambahkan!");
+        if (existing) {
+          // Gabungkan kegiatan baru dan peran baru ke data peserta yang sama (1 Nama = 1 Baris)
+          const { updatedEventName, updatedPeran, isChanged, isAppended } =
+            mergeParticipantEventAndRole(
+              existing.event_name,
+              existing.peran,
+              eventName,
+              trimmedPeran
+            );
+
+          if (isChanged) {
+            const { error } = await supabase
+              .from("participants")
+              .update({
+                event_name: updatedEventName,
+                peran: updatedPeran,
+              })
+              .eq("id", existing.id);
+
+            if (error) throw error;
+
+            if (isAppended) {
+              setSuccessMsg(
+                `Kegiatan "${eventName}" (${trimmedPeran}) berhasil digabungkan ke data peserta "${existing.nama}" (tanpa duplikasi baris)!`
+              );
+            } else {
+              setSuccessMsg(
+                `Peran peserta "${existing.nama}" pada kegiatan "${eventName}" diperbarui menjadi "${trimmedPeran}"!`
+              );
+            }
+          } else {
+            setSuccessMsg(
+              `Peserta "${existing.nama}" sudah terdaftar pada kegiatan "${eventName}" dengan peran "${trimmedPeran}" (tidak diduplikasi).`
+            );
+          }
+        } else {
+          // Tambah peserta baru murni
+          const { error } = await supabase.from("participants").insert({
+            nama: trimmedNama,
+            peran: trimmedPeran,
+            event_id: eventId || null,
+            event_name: eventName,
+            download_count: 0,
+          });
+
+          if (error) throw error;
+          setSuccessMsg("Peserta baru berhasil ditambahkan!");
+        }
       }
 
       setModalOpen(false);
       await loadData();
-      setTimeout(() => setSuccessMsg(null), 4000);
+      setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err: any) {
       console.error("Gagal menyimpan peserta:", err);
       alert("Gagal menyimpan: " + (err.message || ""));
@@ -192,9 +247,25 @@ export default function ParticipantsPage() {
   };
 
   const handleDownloadSingle = async (p: ParticipantItem) => {
-    const ev = events.find((e) => e.id === p.event_id) || events[0];
-    if (!ev) return;
-    await generateCertificatePDF(p, ev);
+    const certEntries = parseParticipantEventsAndRoles(p.event_name, p.peran);
+    const targetFilterEv = events.find((e) => e.id === filterEvent);
+    const chosenEntry = targetFilterEv
+      ? certEntries.find((c) => normalizeEventName(c.eventName) === normalizeEventName(targetFilterEv.name)) || certEntries[0]
+      : certEntries[0];
+
+    const ev =
+      events.find((e) => normalizeEventName(e.name) === normalizeEventName(chosenEntry.eventName)) ||
+      events.find((e) => e.id === p.event_id) ||
+      events[0];
+
+    if (!ev) {
+      alert("Belum ada konfigurasi template untuk kegiatan ini.");
+      return;
+    }
+    await generateCertificatePDF(
+      { ...p, peran: chosenEntry.role, event_name: chosenEntry.eventName },
+      ev
+    );
   };
 
   // Filter Data
@@ -205,9 +276,15 @@ export default function ParticipantsPage() {
       p.nama.toLowerCase().includes(q) ||
       (p.event_name && p.event_name.toLowerCase().includes(q));
 
-    const matchEvent = !filterEvent || p.event_id === filterEvent;
-    const matchRole =
-      !filterRole || p.peran.toLowerCase().includes(filterRole.toLowerCase());
+    const selectedEvName = events.find((e) => e.id === filterEvent)?.name;
+    const matchEvent =
+      !filterEvent ||
+      p.event_id === filterEvent ||
+      (selectedEvName &&
+        p.event_name &&
+        normalizeEventName(p.event_name).includes(normalizeEventName(selectedEvName)));
+
+    const matchRole = isRoleMatchingFilter(p.peran, filterRole);
 
     return matchQ && matchEvent && matchRole;
   });
@@ -331,13 +408,40 @@ export default function ParticipantsPage() {
                       {p.nama}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full border text-[11px] font-bold ${roleBadge.className}`}
-                      >
-                        {roleBadge.label}
-                      </span>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {p.peran
+                          .split(/[,;\n]+/)
+                          .map((r) => r.trim())
+                          .filter(Boolean)
+                          .map((role, rIdx) => {
+                            const badge = formatRoleBadge(role);
+                            return (
+                              <span
+                                key={rIdx}
+                                className={`inline-block px-2.5 py-0.5 rounded-full border text-[11px] font-bold ${badge.className}`}
+                              >
+                                {badge.label}
+                              </span>
+                            );
+                          })}
+                      </div>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600">{evName}</td>
+                    <td className="py-3.5 px-4 text-slate-600">
+                      <div className="flex flex-wrap gap-1 max-w-[260px]">
+                        {evName
+                          .split(/[,;\n]+/)
+                          .map((evItem) => evItem.trim())
+                          .filter(Boolean)
+                          .map((evItem, evIdx) => (
+                            <span
+                              key={evIdx}
+                              className="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700"
+                            >
+                              {evItem}
+                            </span>
+                          ))}
+                      </div>
+                    </td>
                     <td className="py-3.5 px-4 text-center">
                       <button
                         onClick={() => handleDownloadSingle(p)}
@@ -417,14 +521,17 @@ export default function ParticipantsPage() {
                   type="text"
                   value={peran}
                   onChange={(e) => setPeran(e.target.value)}
-                  placeholder="Contoh: Peserta / Panitia / Moderator"
+                  placeholder="Contoh: Peserta / Panitia (pisahkan koma jika banyak peran)"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 outline-none focus:bg-white focus:border-brand-navy"
                 />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Dapat diisi lebih dari 1 peran dipisahkan koma (misal: Peserta, Panitia).
+                </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Pilih Acara *
+                  Pilih Acara Utama *
                 </label>
                 <select
                   value={eventId}
@@ -438,6 +545,24 @@ export default function ParticipantsPage() {
                   ))}
                 </select>
               </div>
+
+              {editItem && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Daftar Acara / Kegiatan
+                  </label>
+                  <input
+                    type="text"
+                    value={customEventName}
+                    onChange={(e) => setCustomEventName(e.target.value)}
+                    placeholder="Contoh: Workshop Web, Seminar AI"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 outline-none focus:bg-white focus:border-brand-navy"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Dapat diisi banyak acara dipisahkan koma sesuai kegiatan yang diikuti.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-3">
