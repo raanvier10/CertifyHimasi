@@ -62,14 +62,14 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
-      {/* Sidebar */}
+    <div className="h-screen flex bg-slate-50 overflow-hidden">
+      {/* Sidebar: Fixed & Sticky on Left */}
       <AdminSidebar />
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
+      {/* Main Container: Independent Scroll Area */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Top Header: Sticky at Top */}
+        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-20">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Admin HIMASI UBSI Karawang
@@ -100,10 +100,12 @@ export default function AdminLayout({
           </div>
         </header>
 
-        {/* Dynamic Content */}
-        <main className="flex-1 p-6 sm:p-8 overflow-y-auto max-w-7xl w-full mx-auto">
-          {children}
-        </main>
+        {/* Dynamic Content: Full-width scroll area (scrollbar di paling pojok kanan layar) */}
+        <div className="flex-1 overflow-y-auto w-full">
+          <main className="max-w-7xl w-full mx-auto p-6 sm:p-8">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );
